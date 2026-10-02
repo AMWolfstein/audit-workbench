@@ -1,0 +1,108 @@
+@page "/engagements/{id:guid}/financial-data"
+@model AuditWorkbench.Web.Pages.Engagements.FinancialDataModel
+@{
+    ViewData["Title"] = $"Financial data - {Model.Engagement.Label}";
+}
+
+<h1>Financial data</h1>
+<partial name="_EngagementHeader" model="Model.Engagement" />
+
+@if (Model.Engagement.IsFinalized)
+{
+    <div class="message warning">
+        This financial year is finalized. Values are shown for reference only; no editing controls are offered
+        and the application and database both refuse changes.
+    </div>
+}
+
+<table>
+    <caption class="muted">Values are stored as exact minor units and corrections append a new revision.</caption>
+    <thead>
+    <tr>
+        <th>Code</th><th>Account</th><th>Type</th>
+        <th class="numeric">Amount (@Model.Engagement.CurrencyCode)</th>
+        <th class="numeric">Rev.</th><th>Recorded (UTC)</th>
+        @if (!Model.Engagement.IsFinalized) { <th>Edit</th> }
+        <th>History</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var value in Model.Values)
+    {
+        <tr>
+            <td>@value.AccountCode</td>
+            <td>@value.AccountName</td>
+            <td>@value.AccountType</td>
+            <td class="numeric">@Model.FormatAmount(value.AmountMinor)</td>
+            <td class="numeric">@(value.RevisionNo?.ToString() ?? "-")</td>
+            <td>@(value.RecordedAtUtc ?? "-")</td>
+            @if (!Model.Engagement.IsFinalized)
+            {
+                <td>
+                    <form method="post" asp-page-handler="SaveValue" asp-route-id="@Model.Engagement.EngagementId">
+                        <input type="hidden" name="accountId" value="@value.AccountId" />
+                        <input type="hidden" name="expectedRevisionNo" value="@(value.RevisionNo ?? 0)" />
+                        <input type="text" name="amount" value="@Model.ToEditString(value.AmountMinor)"
+                               inputmode="decimal" aria-label="Amount for @value.AccountCode" />
+                        <input type="text" name="correctionReason" placeholder="Reason (optional)"
+                               aria-label="Correction reason for @value.AccountCode" />
+                        <button type="submit">Save</button>
+                    </form>
+                </td>
+            }
+            <td>
+                <a asp-page="FinancialData" asp-route-id="@Model.Engagement.EngagementId"
+                   asp-route-historyAccountId="@value.AccountId">@value.RevisionCount revision(s)</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@if (Model.HistoryAccountId is not null)
+{
+    <h2>Revision history</h2>
+    <table>
+        <thead><tr><th class="numeric">Revision</th><th class="numeric">Amount</th><th>Recorded (UTC)</th><th>By</th><th>Reason</th></tr></thead>
+        <tbody>
+        @foreach (var revision in Model.History)
+        {
+            <tr>
+                <td class="numeric">@revision.RevisionNo</td>
+                <td class="numeric">@Model.FormatAmount(revision.AmountMinor)</td>
+                <td>@revision.RecordedAtUtc</td>
+                <td>@revision.RecordedByDisplayName</td>
+                <td>@(revision.CorrectionReason ?? "-")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@if (!Model.Engagement.IsFinalized)
+{
+    <h2>Add an account</h2>
+    <form method="post" asp-page-handler="AddAccount" asp-route-id="@Model.Engagement.EngagementId" class="stacked">
+        <div asp-validation-summary="All" class="message error"></div>
+
+        <label asp-for="NewAccount.AccountCode">Account code</label>
+        <input asp-for="NewAccount.AccountCode" type="text" autocomplete="off" />
+
+        <label asp-for="NewAccount.AccountName">Account name</label>
+        <input asp-for="NewAccount.AccountName" type="text" autocomplete="off" />
+
+        <label asp-for="NewAccount.AccountType">Type</label>
+        <select asp-for="NewAccount.AccountType">
+            @foreach (var type in Model.AccountTypes)
+            {
+                <option value="@type">@type</option>
+            }
+        </select>
+
+        <label asp-for="NewAccount.Amount">Amount (optional)</label>
+        <input asp-for="NewAccount.Amount" type="text" inputmode="decimal" />
+        <p class="hint">Accounts and values belong to this financial year only.</p>
+
+        <p><button class="primary" type="submit">Add account</button></p>
+    </form>
+}

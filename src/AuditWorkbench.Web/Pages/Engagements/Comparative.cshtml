@@ -1,0 +1,58 @@
+@page "/engagements/{id:guid}/comparative"
+@model AuditWorkbench.Web.Pages.Engagements.ComparativeModel
+@{
+    ViewData["Title"] = $"Comparative - {Model.View.Current.Label}";
+}
+
+<h1>Comparative view</h1>
+<partial name="_EngagementHeader" model="Model.View.Current" />
+
+@if (Model.View.Warning is { } warning)
+{
+    <div class="message warning">@warning</div>
+}
+
+<p class="muted">
+    This screen reads both financial years independently and writes to neither. The prior year is resolved
+    through the recorded relationship, never by guessing "year minus one".
+</p>
+
+<table>
+    <thead>
+    <tr>
+        <th>Account</th>
+        <th class="numeric">@(Model.View.Prior?.Label ?? "Prior year")</th>
+        <th class="numeric">@Model.View.Current.Label</th>
+        <th class="numeric">Difference</th>
+        <th class="numeric">% Change</th>
+        <th>Note</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var row in Model.View.Rows)
+    {
+        <tr>
+            <td>@row.AccountName <span class="muted">(@row.AccountCode)</span></td>
+            <td class="numeric">@Model.FormatAmount(row.PriorAmountMinor)</td>
+            <td class="numeric">@Model.FormatAmount(row.CurrentAmountMinor)</td>
+            <td class="numeric">@Model.FormatAmount(row.ChangeAmountMinor)</td>
+            <td class="numeric">@row.ChangePercentDisplay</td>
+            <td>@row.StatusLabel</td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<p class="muted">
+    Percentages use change divided by the absolute prior amount. When there is no prior amount, or the prior
+    amount is zero, the percentage is shown as N/A rather than an invented figure.
+</p>
+
+<p>
+    <a asp-page="Details" asp-route-id="@Model.View.Current.EngagementId">Back to the financial year</a>
+    @if (Model.View.Prior is { } prior)
+    {
+        <text>&middot;</text>
+        <a asp-page="Details" asp-route-id="@prior.EngagementId">Open @prior.Label (read-only)</a>
+    }
+</p>

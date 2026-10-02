@@ -1,0 +1,32 @@
+@model AuditWorkbench.Application.Engagements.EngagementSummary
+@* NFR-16: company, year, state and prior-year source are visible on every engagement screen. *@
+<section class="engagement-header @(Model.IsFinalized ? "finalized" : "open")">
+    <h2>@Model.CompanyLegalName &mdash; @Model.Label</h2>
+    <dl class="inline">
+        <dt>Period</dt>
+        <dd>@Model.PeriodStart to @Model.PeriodEnd</dd>
+        <dt>Status</dt>
+        <dd><span class="badge badge-@Model.Status.ToLowerInvariant()">@Model.Status</span></dd>
+        <dt>Currency</dt>
+        <dd>@Model.CurrencyCode</dd>
+        <dt>Prior year</dt>
+        <dd>
+            @if (Model.PriorEngagementId is not null)
+            {
+                <a asp-page="/Engagements/Details" asp-route-id="@Model.PriorEngagementId">@Model.PriorEngagementLabel (read-only source)</a>
+            }
+            else
+            {
+                <span>Not linked</span>
+            }
+        </dd>
+    </dl>
+    @if (Model.IsFinalized)
+    {
+        <p class="locked-banner">
+            <strong>Finalized and read-only.</strong>
+            Finalized @Model.FinalizedAtUtc by @Model.FinalizedByDisplayName.
+            Digest <code>@(Model.FinalizationDigest?[..16])&hellip;</code>
+        </p>
+    }
+</section>

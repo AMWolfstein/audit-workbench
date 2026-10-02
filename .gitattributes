@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+*.sln  text eol=crlf
+*.csproj text eol=crlf
+
+# Digest fixtures are byte-exact contracts: never translate line endings.
+tests/fixtures/** -text

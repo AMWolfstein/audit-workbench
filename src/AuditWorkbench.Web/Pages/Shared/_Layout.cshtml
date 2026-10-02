@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - Audit Workbench</title>
+    <link rel="stylesheet" href="~/site.css" />
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to main content</a>
+<header>
+    <div class="brand">Audit Workbench <span class="badge badge-local">local workspace</span></div>
+    <nav aria-label="Main">
+        <a asp-page="/Index">Dashboard</a>
+        <a asp-page="/Companies/Index">Companies</a>
+        <a asp-page="/AuditTrail">Audit trail</a>
+        <a asp-page="/Backup">Backup</a>
+    </nav>
+</header>
+<main id="main">
+    @if (TempData["Error"] is string errorMessage)
+    {
+        <div class="message error" role="alert">@errorMessage</div>
+    }
+    @if (TempData["Success"] is string successMessage)
+    {
+        <div class="message success" role="status">@successMessage</div>
+    }
+    @RenderBody()
+</main>
+<footer>
+    <p>
+        Synthetic data only. This build uses a single local, non-production identity and listens on the
+        loopback interface only.
+    </p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>AuditWorkbench.Infrastructure</RootNamespace>
+    <AssemblyName>AuditWorkbench.Infrastructure</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AuditWorkbench.Domain\AuditWorkbench.Domain.csproj" />
+  </ItemGroup>
+
+  <!--
+    The schema, integrity guards and shared queries live in /db and are embedded
+    verbatim. The cross-runtime verification harness executes the same files, so
+    the proven SQL and the shipped SQL cannot drift apart.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\db\migrations\*.sql">
+      <LogicalName>AuditWorkbench.Db.Migrations.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\db\sql\*.sql">
+      <LogicalName>AuditWorkbench.Db.Sql.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

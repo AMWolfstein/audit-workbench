@@ -1,0 +1,57 @@
+@page "/companies"
+@model AuditWorkbench.Web.Pages.Companies.IndexModel
+@{
+    ViewData["Title"] = "Companies";
+}
+
+<h1>Companies</h1>
+
+@if (Model.Items.Count == 0)
+{
+    <p class="muted">No companies yet.</p>
+}
+else
+{
+    <table>
+        <thead>
+        <tr><th>Legal name</th><th>Short name</th><th>Industry</th><th>Country</th><th>Tax reference</th><th class="numeric">Years</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var company in Model.Items)
+        {
+            <tr>
+                <td>@company.LegalName</td>
+                <td>@company.ShortName</td>
+                <td>@company.Industry</td>
+                <td>@company.CountryCode</td>
+                <td>@(company.TaxReference ?? "-")</td>
+                <td class="numeric">@company.EngagementCount (@company.FinalizedEngagementCount finalized)</td>
+                <td><a asp-page="Details" asp-route-id="@company.CompanyId">Open</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+<h2>Create a company</h2>
+<form method="post" class="stacked">
+    <div asp-validation-summary="All" class="message error"></div>
+
+    <label asp-for="Input.LegalName">Legal name</label>
+    <input asp-for="Input.LegalName" type="text" autocomplete="off" />
+
+    <label asp-for="Input.ShortName">Short name</label>
+    <input asp-for="Input.ShortName" type="text" autocomplete="off" />
+    <p class="hint">Unique, non-sensitive internal reference, for example ABC-DEMO.</p>
+
+    <label asp-for="Input.Industry">Industry</label>
+    <input asp-for="Input.Industry" type="text" autocomplete="off" />
+
+    <label asp-for="Input.CountryCode">Country (ISO alpha-2)</label>
+    <input asp-for="Input.CountryCode" type="text" maxlength="2" autocomplete="off" />
+
+    <label asp-for="Input.TaxReference">Tax or registration number (optional)</label>
+    <input asp-for="Input.TaxReference" type="text" autocomplete="off" />
+
+    <p><button class="primary" type="submit">Create company</button></p>
+</form>

@@ -1,0 +1,93 @@
+@page "/companies/{id:guid}"
+@model AuditWorkbench.Web.Pages.Companies.DetailsModel
+@{
+    ViewData["Title"] = Model.Company.LegalName;
+}
+
+<h1>@Model.Company.LegalName</h1>
+<dl class="inline">
+    <dt>Short name</dt><dd>@Model.Company.ShortName</dd>
+    <dt>Industry</dt><dd>@Model.Company.Industry</dd>
+    <dt>Country</dt><dd>@Model.Company.CountryCode</dd>
+    <dt>Tax reference</dt><dd>@(Model.Company.TaxReference ?? "-")</dd>
+    <dt>Status</dt><dd>@Model.Company.Status</dd>
+    <dt>Created (UTC)</dt><dd>@Model.Company.CreatedAtUtc</dd>
+</dl>
+
+<h2>Financial years</h2>
+<p class="muted">
+    A company is master data. Each financial year below is an independent engagement with its own data
+    boundary; a year is never "advanced" by editing another year.
+</p>
+
+@if (Model.Engagements.Count == 0)
+{
+    <p class="muted">No financial years yet.</p>
+}
+else
+{
+    <table>
+        <thead>
+        <tr><th>Year</th><th>Period</th><th>Status</th><th>Prior year</th><th class="numeric">Accounts</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var engagement in Model.Engagements)
+        {
+            <tr>
+                <td>@engagement.Label</td>
+                <td>@engagement.PeriodStart to @engagement.PeriodEnd</td>
+                <td><span class="badge badge-@engagement.Status.ToLowerInvariant()">@engagement.Status</span></td>
+                <td>@(engagement.PriorEngagementLabel ?? "-")</td>
+                <td class="numeric">@engagement.AccountCount</td>
+                <td>
+                    <a asp-page="/Engagements/Details" asp-route-id="@engagement.EngagementId">Open</a>
+                    &middot;
+                    <a asp-page="/Engagements/Comparative" asp-route-id="@engagement.EngagementId">Compare</a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+<h2>Create a financial year</h2>
+<form method="post" class="stacked">
+    <div asp-validation-summary="All" class="message error"></div>
+
+    <label asp-for="Input.Label">Financial year</label>
+    <input asp-for="Input.Label" type="text" placeholder="FY2027" autocomplete="off" />
+
+    <label asp-for="Input.PeriodStart">Period start</label>
+    <input asp-for="Input.PeriodStart" type="date" />
+
+    <label asp-for="Input.PeriodEnd">Period end</label>
+    <input asp-for="Input.PeriodEnd" type="date" />
+
+    <label asp-for="Input.Status">Status</label>
+    <select asp-for="Input.Status">
+        <option value="DRAFT">DRAFT</option>
+        <option value="IN_PROGRESS">IN_PROGRESS</option>
+    </select>
+    <p class="hint">A year can only be finalized from its own page, after preflight and confirmation.</p>
+
+    <label asp-for="Input.CurrencyCode">Currency</label>
+    <input asp-for="Input.CurrencyCode" type="text" maxlength="3" />
+
+    <label asp-for="Input.MinorUnitScale">Decimal places</label>
+    <input asp-for="Input.MinorUnitScale" type="number" min="0" max="6" />
+
+    <label asp-for="Input.PriorEngagementId">Prior year (optional)</label>
+    <select asp-for="Input.PriorEngagementId">
+        <option value="">No prior year</option>
+        @foreach (var option in Model.PriorYearOptions)
+        {
+            <option value="@option.EngagementId">@option.Label (finalized @option.FinalizedAtUtc)</option>
+        }
+    </select>
+    <p class="hint">
+        Only finalized, earlier years of this company are eligible. The link is one-way and immutable:
+        the prior year is read for comparison and is never modified.
+    </p>
+
+    <p><button class="primary" type="submit">Create financial year</button></p>
+</form>
