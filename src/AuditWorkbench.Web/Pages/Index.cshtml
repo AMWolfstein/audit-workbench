@@ -1,0 +1,82 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<h1>Dashboard</h1>
+
+<div class="cards">
+    <div class="card"><div class="value">@Model.View.CompanyCount</div><div class="label">Companies</div></div>
+    <div class="card"><div class="value">@Model.View.OpenEngagementCount</div><div class="label">Open financial years</div></div>
+    <div class="card"><div class="value">@Model.View.FinalizedEngagementCount</div><div class="label">Finalized years</div></div>
+    <div class="card"><div class="value">@Model.View.AuditEventCount</div><div class="label">Audit events</div></div>
+</div>
+
+<h2>Workspace</h2>
+<dl class="inline">
+    <dt>Folder</dt>
+    <dd><code>@Model.View.WorkspaceRoot</code></dd>
+    <dt>Schema version</dt>
+    <dd>@Model.View.SchemaVersion</dd>
+    <dt>Audit hash chain</dt>
+    <dd>@(Model.View.AuditChainValid ? "Verified" : "FAILED - the audit trail was altered outside the application")</dd>
+    <dt>Identity</dt>
+    <dd>@(Model.View.UsingLocalDemoIdentity ? "Local non-production identity (authentication arrives in hardening)" : "Authenticated")</dd>
+</dl>
+
+@if (!Model.View.DemoDataPresent)
+{
+    <h2>Demo data</h2>
+    <form method="post" asp-page-handler="SeedDemo" class="stacked">
+        <p>
+            Create the synthetic <strong>ABC Manufacturing (Demo)</strong> dataset: FY2026 with three values,
+            finalized and locked, plus a linked FY2027 draft. No real client information is ever used.
+        </p>
+        <button class="primary" type="submit">Create demo dataset</button>
+    </form>
+}
+
+<h2>Recent financial years</h2>
+@if (Model.View.RecentEngagements.Count == 0)
+{
+    <p class="muted">No financial years yet. Start by creating a company.</p>
+}
+else
+{
+    <table>
+        <caption class="muted">Each financial year is a separate engagement record.</caption>
+        <thead>
+        <tr><th>Company</th><th>Year</th><th>Period end</th><th>Status</th><th>Prior year</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var engagement in Model.View.RecentEngagements)
+        {
+            <tr>
+                <td>@engagement.CompanyLegalName</td>
+                <td>@engagement.Label</td>
+                <td>@engagement.PeriodEnd</td>
+                <td><span class="badge badge-@engagement.Status.ToLowerInvariant()">@engagement.Status</span></td>
+                <td>@(engagement.PriorEngagementLabel ?? "-")</td>
+                <td><a asp-page="/Engagements/Details" asp-route-id="@engagement.EngagementId">Open</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+<h2>Latest audit events</h2>
+<table>
+    <thead><tr><th>#</th><th>When (UTC)</th><th>Event</th><th>Description</th></tr></thead>
+    <tbody>
+    @foreach (var auditEvent in Model.View.RecentEvents)
+    {
+        <tr>
+            <td>@auditEvent.SequenceNo</td>
+            <td>@auditEvent.OccurredAtUtc</td>
+            <td>@auditEvent.EventType</td>
+            <td>@auditEvent.Description</td>
+        </tr>
+    }
+    </tbody>
+</table>

@@ -1,0 +1,51 @@
+@page "/backup"
+@model BackupModel
+@{
+    ViewData["Title"] = "Backup";
+}
+
+<h1>Backup</h1>
+
+<p class="muted">
+    A backup is an application operation: it uses the SQLite online backup API for a transactionally
+    consistent snapshot, writes to a staging folder and renames it atomically on success. No administrator
+    rights, service or network access are involved. Copying an open database file by hand is not supported.
+</p>
+
+<form method="post" asp-page-handler="Create" class="stacked">
+    <label asp-for="DestinationDirectory">Destination folder (optional)</label>
+    <input asp-for="DestinationDirectory" type="text" placeholder="@Model.DefaultDestination" />
+    <p class="hint">
+        Leave empty to use the workspace backups folder. Copy the package to an organisation-approved
+        encrypted location afterwards.
+    </p>
+    <p><button class="primary" type="submit">Create backup now</button></p>
+</form>
+
+<h2>Backups in the workspace folder</h2>
+@if (Model.Packages.Count == 0)
+{
+    <p class="muted">No backups yet.</p>
+}
+else
+{
+    <table>
+        <thead><tr><th>Package</th><th class="numeric">Size</th><th>Created (UTC)</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var package in Model.Packages)
+        {
+            <tr>
+                <td><code>@package.Name</code></td>
+                <td class="numeric">@(package.SizeBytes / 1024) KB</td>
+                <td>@package.CreatedAtUtc</td>
+                <td>
+                    <form method="post" asp-page-handler="Verify">
+                        <input type="hidden" name="packageDirectory" value="@package.Directory" />
+                        <button type="submit">Verify</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

@@ -116,6 +116,56 @@ This log records decisions before implementation. Statuses are **Accepted**, **P
 - **Reason:** Local single-user constraints and cross-module finalization benefit from simple transactions. A generic engine would obscure core invariants.
 - **Consequences:** Future shared edition may separate infrastructure, while retaining domain contracts.
 
+## ADR-017: Canonical finalization manifest `AWB-MANIFEST/1.0`
+
+- **Status:** Accepted (resolves the deferred "canonical manifest format" decision)
+- **Decision:** Finalization computes a SHA-256 digest over a line-oriented, UTF-8, LF-terminated
+  canonical document described in [finalization-manifest.md](finalization-manifest.md): a version
+  header, engagement identity fields, then one `account|<code>|<name>|<type>|<revision>|<amount>`
+  line per account sorted by account code (ordinal), then `END`. Separators inside values are
+  escaped (`\` then `|` then CR/LF). The digest is stored on both the manifest row and the
+  engagement, and can be recomputed from live data at any time.
+- **Reason:** A finalized year must be provably unchanged. A canonical text form is auditable by a
+  human, is stable across runtimes and library versions, and avoids depending on a JSON
+  canonicalization standard that SQLite and .NET would have to agree on. Amounts are serialized as
+  integer minor units, so no floating-point formatting can perturb the digest.
+- **Consequences:** The grammar is a frozen contract: `tests/fixtures/manifest_v1_example.txt` and
+  its `.sha256` are asserted from both the C# tests and the Python verification harness. Any change
+  to the grammar requires a new version token (`AWB-MANIFEST/1.1`) and a migration of stored
+  digests; it may never be edited in place.
+
+## ADR-018: Immutability is enforced by the database, not only by services
+
+- **Status:** Accepted
+- **Decision:** Every year-isolation and finalization invariant is expressed in SQL: `STRICT`
+  tables, `CHECK` constraints, a composite `(account_id, engagement_id)` foreign key that makes
+  cross-year values unrepresentable, and `BEFORE` triggers that `RAISE(ABORT, 'AWB-GUARD-<AREA>: …')`.
+  The application layer repeats the checks for good error messages, and
+  `SqliteErrorTranslator` maps a raised guard back onto the matching domain exception.
+- **Reason:** The workspace file is a user-writable SQLite database; the operator can open it with
+  any SQLite tool. A rule that lives only in C# is advisory. Triggers also protect against
+  application bugs, partially applied transactions and future code paths.
+- **Consequences:** Guard names are a stable vocabulary shared by SQL, C# and the tests. Because
+  SQLite does not define the firing order of triggers on the same event, overlapping guards must be
+  made mutually exclusive through their `WHEN` clauses rather than by relying on order.
+
+## ADR-019: Hash-chained audit trail with an independent verification harness
+
+- **Status:** Accepted
+- **Decision:** `audit_event` is append-only (enforced by trigger) and each row stores
+  `event_hash = SHA-256(sequence_no | event_id | occurred_at | actor | type | outcome | company |
+  engagement | entity_type | entity_id | description | details_json | previous_hash)`, so the trail
+  is a chain verifiable in one pass. Alongside the .NET solution, `tools/verification/` runs the
+  **real** migration and query SQL against SQLite from Python and asserts the same invariants
+  (year isolation, finalization, comparatives, audit chain, backup, manifest fixture).
+- **Reason:** The audit trail is the evidence that a finalized year was never altered; a plain log
+  table proves nothing if rows can be edited. The second harness exists because the SQL layer is
+  where the guarantees live: it exercises the schema without a .NET toolchain, catches drift
+  between the shipped SQL and the documented behaviour, and gives a reviewer a runnable proof.
+- **Consequences:** Two implementations of the manifest and digest rules must stay in step; the
+  frozen fixture is what keeps them honest. The harness is a development tool, is not part of the
+  distributable package, and depends on the Python standard library only.
+
 ## Deferred decisions / required discovery
 
 | Decision | Needed before | Questions |
@@ -127,7 +177,7 @@ This log records decisions before implementation. Statuses are **Accepted**, **P
 | Currency/scale/sign convention | Migration 001 | Single/multi-currency? units/decimals? max balances? debit/credit display? |
 | Fiscal periods | Engagement implementation | 52/53-week years, changed year-end, periods over 12 months? |
 | Finalization authority | Finalization implementation | Which role(s), dual approval, required checklist/backup? |
-| Canonical manifest format | Finalization implementation | JSON canonicalization or table digest rules; algorithm agility/versioning? |
+| ~~Canonical manifest format~~ | Resolved by ADR-017 | `AWB-MANIFEST/1.0`; new grammar requires a new version token |
 | Backup destination/retention | MVP hardening | Corporate approved path/media, encryption tool, generations, recovery custody? |
 | Legal retention/reopening | Post-MVP governance | Jurisdictional periods, legal hold, correction/supersession model? |
 | Expected volumes | Performance test plan | Companies, years, TB rows, attachment sizes, backup window? |

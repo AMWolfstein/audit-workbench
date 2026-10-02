@@ -1,6 +1,6 @@
 # Audit Workbench
 
-Architecture and product specification for a **local, portable audit-management and working-papers application**. This repository currently contains documentation only; no application or production code has been implemented.
+Architecture, product specification and **first MVP implementation** of a local, portable audit-management and working-papers application.
 
 > All names and values in these documents are synthetic examples. Development and test data must never contain real client information.
 
@@ -11,6 +11,39 @@ Audit Workbench will be a self-contained **.NET 8 LTS ASP.NET Core** application
 The central invariant is:
 
 > A company is master data; each financial year is a separate engagement boundary. Finalizing an engagement makes all of its year-owned records immutable to normal application operations. A later year references or copies from the finalized prior engagement—it never repurposes or updates that engagement.
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `src/AuditWorkbench.Domain` | Entities, invariants, money policy, manifest grammar, comparative maths |
+| `src/AuditWorkbench.Infrastructure` | SQLite workspace, migration runner, EF Core mapping, backup writer |
+| `src/AuditWorkbench.Application` | Use-case services, audit trail, finalization, demo dataset |
+| `src/AuditWorkbench.Web` | Razor Pages UI, loopback-only host (`AuditWorkbench.exe`) |
+| `db/migrations`, `db/sql` | The shipped schema, integrity guards and read queries |
+| `tests/` | xUnit suites for the domain and for the services against a real SQLite file |
+| `tools/verification/` | Python harness that runs the same SQL and proves the invariants — see its [README](tools/verification/README.md) |
+| `docs/` | Specification and decision records |
+
+## Build, test and run
+
+```bash
+dotnet build AuditWorkbench.sln
+dotnet test AuditWorkbench.sln
+dotnet run --project src/AuditWorkbench.Web
+```
+
+The application opens a browser on `http://localhost:<port>`, listening on the loopback interface
+only. Its workspace (database, backups, logs) is created under `%LocalAppData%\AuditWorkbenchData`,
+or under the folder named by the `AUDITWORKBENCH_WORKSPACE` environment variable — no installer, no
+administrator rights, no service, no network. The dashboard can seed a clearly labelled synthetic
+demo company (ABC Manufacturing (Demo) Limited) with FY2026 finalized and FY2027 open.
+
+The invariants can also be verified without a .NET SDK, directly against the shipped SQL:
+
+```bash
+python3 tools/verification/run_verification.py
+```
 
 ## MVP
 
@@ -87,11 +120,11 @@ Finalized is intentionally terminal. Exceptional reopening, if ever approved, wi
 
 ## Recommended delivery phases
 
-1. **Specification baseline (this commit):** agree invariants, acceptance criteria, schema concept, security boundaries, and decisions.
+1. **Specification baseline:** agree invariants, acceptance criteria, schema concept, security boundaries, and decisions.
 2. **Technical skeleton:** portable packaging proof, loopback-only host, SQLite migrations, health/startup handling, and no business UI beyond a diagnostic shell.
-3. **Company and engagement core:** master data, year creation, explicit ownership, validation, and audit event infrastructure.
-4. **Financial data and comparison:** append-only revisions, prior-year link, comparative query, and synthetic fixture.
-5. **Finalization controls:** preflight, transaction, immutable-state database guards, digest/manifest, backup prompt, and negative tests.
+3. **Company and engagement core (implemented):** master data, year creation, explicit ownership, validation, and audit event infrastructure.
+4. **Financial data and comparison (implemented):** append-only revisions, prior-year link, comparative query, and synthetic fixture.
+5. **Finalization controls (implemented):** preflight, transaction, immutable-state database guards, digest/manifest, backup prompt, and negative tests.
 6. **MVP hardening:** local identity/RBAC baseline, backup/restore validation, accessibility, failure recovery, packaging, and user acceptance testing.
 7. **Post-MVP modules:** trial balance/mapping, materiality/risk/planning, procedures/working papers/review, findings/sign-off, controlled roll-forward, and exports.
 

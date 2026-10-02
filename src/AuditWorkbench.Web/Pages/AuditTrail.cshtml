@@ -1,0 +1,50 @@
+@page "/audit-trail"
+@model AuditTrailModel
+@{
+    ViewData["Title"] = "Audit trail";
+}
+
+<h1>Audit trail</h1>
+
+<div class="message @(Model.ChainValid ? "success" : "error")">
+    @(Model.ChainValid
+        ? "Hash chain verified: no audit event has been altered or removed."
+        : "Hash chain verification FAILED. The audit trail was modified outside the application.")
+</div>
+
+<form method="get" class="stacked">
+    <label for="EventType">Event type</label>
+    <select id="EventType" name="EventType">
+        <option value="">All events</option>
+        @foreach (var type in Model.EventTypes)
+        {
+            <option value="@type" selected="@(Model.EventType == type)">@type</option>
+        }
+    </select>
+    @if (Model.EngagementId is not null)
+    {
+        <input type="hidden" name="EngagementId" value="@Model.EngagementId" />
+    }
+    <p><button type="submit">Filter</button> <a asp-page="/AuditTrail">Clear</a></p>
+</form>
+
+<table>
+    <caption class="muted">Append-only. Events cannot be edited or deleted through the application or the database.</caption>
+    <thead>
+    <tr><th class="numeric">#</th><th>When (UTC)</th><th>Event</th><th>Entity</th><th>Entity ID</th><th>Description</th><th>Actor</th></tr>
+    </thead>
+    <tbody>
+    @foreach (var auditEvent in Model.Events)
+    {
+        <tr>
+            <td class="numeric">@auditEvent.SequenceNo</td>
+            <td>@auditEvent.OccurredAtUtc</td>
+            <td>@auditEvent.EventType</td>
+            <td>@auditEvent.EntityType</td>
+            <td><code>@auditEvent.EntityId</code></td>
+            <td>@auditEvent.Description</td>
+            <td>@auditEvent.ActorDisplayName</td>
+        </tr>
+    }
+    </tbody>
+</table>

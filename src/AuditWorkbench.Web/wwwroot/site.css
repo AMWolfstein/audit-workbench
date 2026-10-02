@@ -1,0 +1,86 @@
+/* Deliberately plain: correctness and clarity over visual design. */
+:root {
+    --ink: #1b1b1b;
+    --muted: #5a5a5a;
+    --line: #d0d0d0;
+    --accent: #11457a;
+    --locked: #7a3b11;
+    --ok: #16611f;
+    --bad: #9c1c1c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    background: #f7f7f5;
+}
+
+header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    background: #fff;
+    border-bottom: 2px solid var(--accent);
+}
+
+header .brand { font-weight: 700; font-size: 1.1rem; }
+header nav a { margin-left: 1rem; color: var(--accent); }
+
+main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1.5rem 3rem; }
+footer { border-top: 1px solid var(--line); padding: 1rem 1.5rem; color: var(--muted); font-size: 0.85rem; }
+
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.2rem; }
+
+a { color: var(--accent); }
+
+.skip-link { position: absolute; left: -999px; }
+.skip-link:focus { left: 1rem; top: 0.5rem; background: #fff; padding: 0.4rem; }
+
+table { width: 100%; border-collapse: collapse; background: #fff; margin: 0.75rem 0 1.5rem; }
+th, td { border: 1px solid var(--line); padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+th { background: #eef1f5; }
+td.numeric, th.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+
+form.stacked { background: #fff; border: 1px solid var(--line); padding: 1rem; max-width: 46rem; }
+form.stacked label { display: block; margin: 0.6rem 0 0.2rem; font-weight: 600; }
+form.stacked input[type=text], form.stacked select, form.stacked textarea { width: 100%; padding: 0.35rem; }
+form.stacked .hint { color: var(--muted); font-size: 0.85rem; }
+
+button, input[type=submit] { padding: 0.4rem 0.9rem; cursor: pointer; }
+button.primary { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
+button.danger { background: var(--locked); color: #fff; border: 1px solid var(--locked); }
+
+.message { padding: 0.6rem 0.9rem; margin-bottom: 1rem; border: 1px solid; }
+.message.error { border-color: var(--bad); background: #fdecec; color: var(--bad); }
+.message.success { border-color: var(--ok); background: #eaf6ea; color: var(--ok); }
+.message.warning { border-color: var(--locked); background: #fdf3e9; color: var(--locked); }
+
+.badge { display: inline-block; padding: 0.05rem 0.45rem; border: 1px solid var(--line); font-size: 0.8rem; }
+.badge-draft { background: #eef1f5; }
+.badge-in_progress { background: #e7f0fb; }
+.badge-finalized { background: #f6e6d8; color: var(--locked); border-color: var(--locked); }
+.badge-local { background: #eee; color: var(--muted); font-weight: 400; }
+
+.engagement-header { background: #fff; border: 1px solid var(--line); padding: 1rem; margin-bottom: 1.25rem; }
+.engagement-header.finalized { border-left: 6px solid var(--locked); }
+.engagement-header.open { border-left: 6px solid var(--accent); }
+.locked-banner { background: #f6e6d8; padding: 0.5rem 0.75rem; }
+
+dl.inline { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0.5rem 0 0; }
+dl.inline dt { font-weight: 600; color: var(--muted); }
+
+.cards { display: flex; flex-wrap: wrap; gap: 1rem; }
+.card { background: #fff; border: 1px solid var(--line); padding: 0.75rem 1rem; min-width: 10rem; }
+.card .value { font-size: 1.6rem; font-weight: 700; }
+.card .label { color: var(--muted); font-size: 0.85rem; }
+
+code { background: #eee; padding: 0 0.2rem; }
+.muted { color: var(--muted); }

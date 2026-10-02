@@ -1,0 +1,99 @@
+@page "/engagements/{id:guid}"
+@model AuditWorkbench.Web.Pages.Engagements.DetailsModel
+@{
+    ViewData["Title"] = Model.Engagement.Label;
+}
+
+<h1>Financial year</h1>
+<partial name="_EngagementHeader" model="Model.Engagement" />
+
+<p>
+    <a asp-page="FinancialData" asp-route-id="@Model.Engagement.EngagementId">Financial data</a> &middot;
+    <a asp-page="Comparative" asp-route-id="@Model.Engagement.EngagementId">Comparative view</a> &middot;
+    <a asp-page="/AuditTrail" asp-route-engagementId="@Model.Engagement.EngagementId">Audit trail</a> &middot;
+    <a asp-page="/Companies/Details" asp-route-id="@Model.Engagement.CompanyId">Company</a>
+</p>
+
+@if (Model.Engagement.IsFinalized)
+{
+    <h2>Finalization evidence</h2>
+    <dl class="inline">
+        <dt>Finalized (UTC)</dt><dd>@Model.Engagement.FinalizedAtUtc</dd>
+        <dt>Finalized by</dt><dd>@Model.Engagement.FinalizedByDisplayName</dd>
+        <dt>Manifest digest</dt><dd><code>@Model.Engagement.FinalizationDigest</code></dd>
+        <dt>Digest verification</dt>
+        <dd>@(Model.DigestVerified ? "Recomputed from live data and matches." : "MISMATCH - the stored content differs from the manifest.")</dd>
+    </dl>
+    <p class="message warning">
+        This financial year is read-only. There is no unfinalize or delete action: the application, the
+        database triggers and the manifest digest all refuse changes.
+    </p>
+}
+else
+{
+    <h2>Status</h2>
+    <form method="post" asp-page-handler="Status" asp-route-id="@Model.Engagement.EngagementId" class="stacked">
+        <input type="hidden" name="rowVersion" value="@Model.Engagement.RowVersion" />
+        <label for="status">Set status</label>
+        <select id="status" name="status">
+            <option value="DRAFT" selected="@(Model.Engagement.Status == "DRAFT")">DRAFT</option>
+            <option value="IN_PROGRESS" selected="@(Model.Engagement.Status == "IN_PROGRESS")">IN_PROGRESS</option>
+        </select>
+        <p><button type="submit">Update status</button></p>
+    </form>
+
+    <h2>Finalization</h2>
+    @if (Model.Preflight is { } preflight)
+    {
+        @if (preflight.BlockingProblems.Count > 0)
+        {
+            <div class="message error">
+                <strong>Preflight found blocking problems:</strong>
+                <ul>@foreach (var problem in preflight.BlockingProblems) { <li>@problem</li> }</ul>
+            </div>
+        }
+        else
+        {
+            <div class="message success">Preflight passed. This year is ready to be finalized.</div>
+        }
+
+        @if (preflight.Warnings.Count > 0)
+        {
+            <div class="message warning">
+                <ul>@foreach (var warning in preflight.Warnings) { <li>@warning</li> }</ul>
+            </div>
+        }
+
+        @if (preflight.CanFinalize)
+        {
+            <form method="post" asp-page-handler="Finalize" asp-route-id="@Model.Engagement.EngagementId" class="stacked">
+                <input type="hidden" name="rowVersion" value="@Model.Engagement.RowVersion" />
+                <p>
+                    Finalizing <strong>@Model.Engagement.CompanyLegalName @Model.Engagement.Label</strong>
+                    (@Model.Engagement.PeriodStart to @Model.Engagement.PeriodEnd) makes every value in this year
+                    permanently read-only. This cannot be undone in this version.
+                </p>
+                <label asp-for="ConfirmationText">Type <code>@Model.ConfirmationPhrase</code> to confirm</label>
+                <input asp-for="ConfirmationText" type="text" autocomplete="off" />
+                <p><button class="danger" type="submit">Finalize this financial year</button></p>
+            </form>
+        }
+    }
+}
+
+<h2>Recent events for this year</h2>
+<table>
+    <thead><tr><th>#</th><th>When (UTC)</th><th>Event</th><th>Description</th><th>Actor</th></tr></thead>
+    <tbody>
+    @foreach (var auditEvent in Model.Events)
+    {
+        <tr>
+            <td>@auditEvent.SequenceNo</td>
+            <td>@auditEvent.OccurredAtUtc</td>
+            <td>@auditEvent.EventType</td>
+            <td>@auditEvent.Description</td>
+            <td>@auditEvent.ActorDisplayName</td>
+        </tr>
+    }
+    </tbody>
+</table>

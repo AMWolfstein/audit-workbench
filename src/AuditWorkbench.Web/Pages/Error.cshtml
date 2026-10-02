@@ -1,0 +1,8 @@
+@page
+@model ErrorModel
+@{
+    ViewData["Title"] = "Problem";
+}
+<h1>The operation was not completed</h1>
+<div class="message error" role="alert">@Model.Message</div>
+<p><a asp-page="/Index">Back to the dashboard</a></p>
