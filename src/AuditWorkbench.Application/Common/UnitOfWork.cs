@@ -1,3 +1,4 @@
+using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -53,7 +54,7 @@ public sealed class UnitOfWork
             return true;
         }, cancellationToken);
 
-    private async Task<T> RunAsync(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken)
+    private async Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken)
     {
         try
         {
@@ -61,7 +62,7 @@ public sealed class UnitOfWork
             await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return result;
         }
-        catch (DbUpdateConcurrencyException exception)
+        catch (DbUpdateConcurrencyException)
         {
             throw new ConcurrencyException(
                 "The record changed after it was loaded. Reload it and reapply your changes.");

@@ -5,6 +5,7 @@ using AuditWorkbench.Application.Engagements;
 using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Domain.FinancialData;
+using AuditWorkbench.Domain.Identity;
 using AuditWorkbench.Domain.Money;
 using AuditWorkbench.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -144,6 +145,9 @@ public sealed class FinancialDataService
 
             if (!string.IsNullOrWhiteSpace(command.Amount))
             {
+                // The value lookup queries the database, so the new account must be flushed
+                // (still inside this transaction) before its first revision is recorded.
+                await _dbContext.SaveChangesAsync(token).ConfigureAwait(false);
                 await RecordValueCoreAsync(
                         engagement.EngagementId,
                         account.AccountId,

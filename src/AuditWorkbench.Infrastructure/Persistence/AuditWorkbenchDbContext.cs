@@ -237,6 +237,31 @@ public class AuditWorkbenchDbContext : DbContext
             entity.HasIndex(e => e.SequenceNo).IsUnique();
         });
 
+        // The tables already declare these foreign keys (migrations are SQL). They are
+        // mirrored here, without navigations, only so EF Core inserts parents before
+        // children within one SaveChanges; it never creates or alters constraints.
+        modelBuilder.Entity<Company>().HasOne<User>().WithMany().HasForeignKey(e => e.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<Engagement>().HasOne<Company>().WithMany().HasForeignKey(e => e.CompanyId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<Engagement>().HasOne<FinancialYear>().WithMany().HasForeignKey(e => e.FinancialYearId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<Engagement>().HasOne<User>().WithMany().HasForeignKey(e => e.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<Account>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<Account>().HasOne<User>().WithMany().HasForeignKey(e => e.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialDataEntry>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialDataEntry>().HasOne<Account>().WithMany().HasForeignKey(e => e.AccountId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialDataEntry>().HasOne<User>().WithMany().HasForeignKey(e => e.RecordedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<PriorYearRelationship>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.CurrentEngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<PriorYearRelationship>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.PriorEngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<PriorYearRelationship>().HasOne<User>().WithMany().HasForeignKey(e => e.LinkedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinalizationManifest>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinalizationManifest>().HasOne<User>().WithMany().HasForeignKey(e => e.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<AuditEvent>().HasOne<User>().WithMany().HasForeignKey(e => e.ActorUserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<AuditEvent>().HasOne<Company>().WithMany().HasForeignKey(e => e.CompanyId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<AuditEvent>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<EngagementMember>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<EngagementMember>().HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<EngagementMember>().HasOne<Role>().WithMany().HasForeignKey(e => e.RoleId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<Assignment>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+
         // Identifiers are stored as canonical lowercase UUID text so a workspace
         // stays readable with any SQLite tool (ADR-017).
         foreach (var property in modelBuilder.Model.GetEntityTypes()
