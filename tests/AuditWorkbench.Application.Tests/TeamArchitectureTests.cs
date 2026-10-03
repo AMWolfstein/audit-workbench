@@ -99,8 +99,9 @@ public class TeamArchitectureTests
         await workspace.UseAsync(scope => scope.GetRequiredService<TeamService>()
             .ChangeMemberRoleAsync(engagement, member, BuiltInRoles.Senior, expectedRowVersion: 1));
 
-        Assert.Equal(BuiltInRoles.SeniorId.ToString("D"), await workspace.TextScalarAsync(
-            "SELECT role_id FROM engagement_member WHERE engagement_id = $e AND user_id = $u",
+        Assert.Equal("SENIOR", await workspace.TextScalarAsync(
+            "SELECT r.role_key FROM app_role r JOIN engagement_member m ON m.role_id = r.role_id " +
+            "WHERE m.engagement_id = $e AND m.user_id = $u",
             ("$e", engagement.ToString("D")), ("$u", member.ToString("D"))));
         Assert.Equal(2L, await workspace.ScalarAsync(
             "SELECT row_version FROM engagement_member WHERE engagement_id = $e AND user_id = $u",
@@ -117,8 +118,9 @@ public class TeamArchitectureTests
         await Assert.ThrowsAsync<ConcurrencyException>(() => workspace.UseAsync(scope =>
             scope.GetRequiredService<TeamService>()
                 .ChangeMemberRoleAsync(engagement, member, BuiltInRoles.Manager, expectedRowVersion: 1)));
-        Assert.Equal(BuiltInRoles.SeniorId.ToString("D"), await workspace.TextScalarAsync(
-            "SELECT role_id FROM engagement_member WHERE engagement_id = $e AND user_id = $u",
+        Assert.Equal("SENIOR", await workspace.TextScalarAsync(
+            "SELECT r.role_key FROM app_role r JOIN engagement_member m ON m.role_id = r.role_id " +
+            "WHERE m.engagement_id = $e AND m.user_id = $u",
             ("$e", engagement.ToString("D")), ("$u", member.ToString("D"))));
 
         // An auditor cannot manage the team at all.
