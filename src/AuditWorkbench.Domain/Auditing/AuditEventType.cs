@@ -16,8 +16,15 @@ public static class AuditEventType
     public const string ProtectedWriteRejected = "PROTECTED_WRITE_REJECTED";
     public const string IntegrityCheckFailed = "INTEGRITY_CHECK_FAILED";
     public const string EngagementMemberAdded = "ENGAGEMENT_MEMBER_ADDED";
+    public const string EngagementMemberRoleChanged = "ENGAGEMENT_MEMBER_ROLE_CHANGED";
+    public const string EngagementMemberSuspended = "ENGAGEMENT_MEMBER_SUSPENDED";
+    public const string EngagementMemberReactivated = "ENGAGEMENT_MEMBER_REACTIVATED";
     public const string AssignmentCreated = "ASSIGNMENT_CREATED";
+    public const string AssignmentCompleted = "ASSIGNMENT_COMPLETED";
+    public const string AssignmentCancelled = "ASSIGNMENT_CANCELLED";
     public const string UserCreated = "USER_CREATED";
+    public const string UserDeactivated = "USER_DEACTIVATED";
+    public const string UserReactivated = "USER_REACTIVATED";
 }
 
 public static class AuditEventOutcome

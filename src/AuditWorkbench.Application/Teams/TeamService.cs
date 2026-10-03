@@ -1,7 +1,9 @@
 using AuditWorkbench.Application.Auditing;
 using AuditWorkbench.Application.Common;
+using AuditWorkbench.Application.Engagements;
 using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Domain.Common;
+using AuditWorkbench.Domain.Engagements;
 using AuditWorkbench.Domain.Identity;
 using AuditWorkbench.Domain.Teams;
 using AuditWorkbench.Infrastructure.Persistence;
@@ -32,6 +34,29 @@ public sealed class EngagementAuthorizationService
         if (!await HasPermissionAsync(engagementId, permission, cancellationToken).ConfigureAwait(false))
             throw new AuthorizationException("You are not an active engagement member with the required permission.");
     }
+
+    /// <summary>
+    /// The engagements whose year-owned records the actor may read under the given
+    /// permission. Deny-by-default: an empty result means no engagement access.
+    /// </summary>
+    public async Task<IReadOnlyList<Guid>> PermittedEngagementIdsAsync(string permission,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_actor.IsAuthenticated || _actor.UserId == Guid.Empty)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        return await (
+            from member in _db.EngagementMembers.AsNoTracking()
+            join user in _db.Users.AsNoTracking() on member.UserId equals user.UserId
+            join rolePermission in _db.RolePermissions.AsNoTracking() on member.RoleId equals rolePermission.RoleId
+            where member.UserId == _actor.UserId
+                  && member.Status == "ACTIVE"
+                  && user.Status == "ACTIVE"
+                  && rolePermission.PermissionKey == permission
+            select member.EngagementId).Distinct().ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
 }
 
 public sealed class TeamService
@@ -40,12 +65,14 @@ public sealed class TeamService
     private readonly UnitOfWork _uow;
     private readonly AuditTrailWriter _audit;
     private readonly EngagementAuthorizationService _authorization;
+    private readonly EngagementService _engagements;
     private readonly ICurrentActor _actor;
     private readonly IClock _clock;
 
     public TeamService(AuditWorkbenchDbContext db, UnitOfWork uow, AuditTrailWriter audit,
-        EngagementAuthorizationService authorization, ICurrentActor actor, IClock clock)
-    { _db = db; _uow = uow; _audit = audit; _authorization = authorization; _actor = actor; _clock = clock; }
+        EngagementAuthorizationService authorization, EngagementService engagements, ICurrentActor actor,
+        IClock clock)
+    { _db = db; _uow = uow; _audit = audit; _authorization = authorization; _engagements = engagements; _actor = actor; _clock = clock; }
 
     public Task<Guid> CreateUserAsync(string username, string displayName, string? email = null,
         CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
@@ -94,6 +121,166 @@ public sealed class TeamService
                 .With("scope_id", assignment.ScopeId), cancellationToken: token);
         return assignment.AssignmentId;
     }, cancellationToken);
+
+    /// <summary>Changes a member's role. The membership history itself is never rewritten.</summary>
+    public Task ChangeMemberRoleAsync(Guid engagementId, Guid userId, string roleKey,
+        int? expectedRowVersion = null, CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
+    {
+        await _authorization.RequireAsync(engagementId, Permissions.ManageTeam, token);
+        var member = await LoadMemberAsync(engagementId, userId, token);
+        await EnsureEngagementOpenAsync(engagementId, token);
+
+        var role = await _db.Roles.AsNoTracking().SingleOrDefaultAsync(r => r.RoleKey == roleKey, token)
+            ?? throw new ValidationException("That role does not exist.");
+        var previousRoleKey = (await _db.Roles.AsNoTracking()
+            .SingleAsync(r => r.RoleId == member.RoleId, token)).RoleKey;
+
+        member.EnsureExpectedVersion(expectedRowVersion);
+        member.ChangeRole(role.RoleId, IClock.Format(_clock.UtcNow));
+
+        await _audit.AppendAsync(AuditEventType.EngagementMemberRoleChanged, AuditEntityType.EngagementMember,
+            member.EngagementMemberId.ToString("D"),
+            $"Team role of {display(userId)} changed from {previousRoleKey} to {role.RoleKey}.",
+            engagementId: engagementId,
+            details: AuditDetails.Empty().With("user_id", userId)
+                .With("previous_role", previousRoleKey).With("new_role", role.RoleKey),
+            cancellationToken: token);
+    }, cancellationToken);
+
+    /// <summary>
+    /// Suspends a membership. Access is revoked immediately; the record and its
+    /// history are retained (data-model.md section 8: disable, never delete).
+    /// </summary>
+    public Task SuspendMemberAsync(Guid engagementId, Guid userId,
+        int? expectedRowVersion = null, CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
+    {
+        await _authorization.RequireAsync(engagementId, Permissions.ManageTeam, token);
+        if (userId == _actor.UserId)
+            throw new ValidationException("You cannot suspend your own membership; another team manager must do it.");
+        var member = await LoadMemberAsync(engagementId, userId, token);
+        await EnsureEngagementOpenAsync(engagementId, token);
+
+        member.EnsureExpectedVersion(expectedRowVersion);
+        member.Suspend(IClock.Format(_clock.UtcNow));
+
+        await _audit.AppendAsync(AuditEventType.EngagementMemberSuspended, AuditEntityType.EngagementMember,
+            member.EngagementMemberId.ToString("D"), $"{display(userId)} suspended from the engagement team.",
+            engagementId: engagementId, details: AuditDetails.Empty().With("user_id", userId),
+            cancellationToken: token);
+    }, cancellationToken);
+
+    public Task ReactivateMemberAsync(Guid engagementId, Guid userId,
+        int? expectedRowVersion = null, CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
+    {
+        await _authorization.RequireAsync(engagementId, Permissions.ManageTeam, token);
+        var member = await LoadMemberAsync(engagementId, userId, token);
+        await EnsureEngagementOpenAsync(engagementId, token);
+
+        member.EnsureExpectedVersion(expectedRowVersion);
+        member.Reactivate(IClock.Format(_clock.UtcNow));
+
+        await _audit.AppendAsync(AuditEventType.EngagementMemberReactivated, AuditEntityType.EngagementMember,
+            member.EngagementMemberId.ToString("D"), $"{display(userId)} reactivated on the engagement team.",
+            engagementId: engagementId, details: AuditDetails.Empty().With("user_id", userId),
+            cancellationToken: token);
+    }, cancellationToken);
+
+    /// <summary>Completes an assignment: terminal, the outcome is retained as history.</summary>
+    public Task CompleteAssignmentAsync(Guid engagementId, Guid assignmentId,
+        int? expectedRowVersion = null, CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
+    {
+        await _authorization.RequireAsync(engagementId, Permissions.ManageAssignments, token);
+        var assignment = await LoadAssignmentAsync(engagementId, assignmentId, token);
+        await EnsureEngagementOpenAsync(engagementId, token);
+
+        assignment.EnsureExpectedVersion(expectedRowVersion);
+        assignment.Complete(IClock.Format(_clock.UtcNow));
+
+        await _audit.AppendAsync(AuditEventType.AssignmentCompleted, AuditEntityType.Assignment,
+            assignment.AssignmentId.ToString("D"), $"Assignment '{assignment.Title}' completed.",
+            engagementId: engagementId,
+            details: AuditDetails.Empty().With("assignee_user_id", assignment.AssigneeUserId)
+                .With("scope_type", assignment.ScopeType).With("scope_id", assignment.ScopeId),
+            cancellationToken: token);
+    }, cancellationToken);
+
+    /// <summary>Cancels an assignment: terminal, the outcome is retained as history.</summary>
+    public Task CancelAssignmentAsync(Guid engagementId, Guid assignmentId,
+        int? expectedRowVersion = null, CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
+    {
+        await _authorization.RequireAsync(engagementId, Permissions.ManageAssignments, token);
+        var assignment = await LoadAssignmentAsync(engagementId, assignmentId, token);
+        await EnsureEngagementOpenAsync(engagementId, token);
+
+        assignment.EnsureExpectedVersion(expectedRowVersion);
+        assignment.Cancel(IClock.Format(_clock.UtcNow));
+
+        await _audit.AppendAsync(AuditEventType.AssignmentCancelled, AuditEntityType.Assignment,
+            assignment.AssignmentId.ToString("D"), $"Assignment '{assignment.Title}' cancelled.",
+            engagementId: engagementId,
+            details: AuditDetails.Empty().With("assignee_user_id", assignment.AssigneeUserId)
+                .With("scope_type", assignment.ScopeType).With("scope_id", assignment.ScopeId),
+            cancellationToken: token);
+    }, cancellationToken);
+
+    /// <summary>
+    /// Disables an application account. All engagement access is revoked at once
+    /// because authorization only considers active users; attribution and
+    /// membership history are preserved. Users are never deleted.
+    /// </summary>
+    public Task DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
+    {
+        EnsureAuthenticated();
+        if (userId == _actor.UserId)
+            throw new ValidationException("You cannot deactivate your own account.");
+        var user = await LoadUserAsync(userId, token);
+
+        user.Deactivate(IClock.Format(_clock.UtcNow));
+
+        await _audit.AppendAsync(AuditEventType.UserDeactivated, AuditEntityType.User, user.UserId.ToString("D"),
+            $"Application user '{user.DisplayName}' deactivated.",
+            details: AuditDetails.Empty().With("username", user.Username), cancellationToken: token);
+    }, cancellationToken);
+
+    public Task ReactivateUserAsync(Guid userId, CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
+    {
+        EnsureAuthenticated();
+        var user = await LoadUserAsync(userId, token);
+
+        user.Reactivate(IClock.Format(_clock.UtcNow));
+
+        await _audit.AppendAsync(AuditEventType.UserReactivated, AuditEntityType.User, user.UserId.ToString("D"),
+            $"Application user '{user.DisplayName}' reactivated.",
+            details: AuditDetails.Empty().With("username", user.Username), cancellationToken: token);
+    }, cancellationToken);
+
+    private async Task<EngagementMember> LoadMemberAsync(Guid engagementId, Guid userId, CancellationToken token) =>
+        await _db.EngagementMembers
+            .FirstOrDefaultAsync(m => m.EngagementId == engagementId && m.UserId == userId, token)
+            .ConfigureAwait(false)
+        ?? throw new ValidationException("That user does not have a membership record for this engagement.");
+
+    private async Task<Assignment> LoadAssignmentAsync(Guid engagementId, Guid assignmentId, CancellationToken token) =>
+        await _db.Assignments
+            .FirstOrDefaultAsync(a => a.AssignmentId == assignmentId && a.EngagementId == engagementId, token)
+            .ConfigureAwait(false)
+        ?? throw new ValidationException("That assignment does not belong to this engagement.");
+
+    private async Task<User> LoadUserAsync(Guid userId, CancellationToken token) =>
+        await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId, token).ConfigureAwait(false)
+        ?? throw new NotFoundException("That application user does not exist in this workspace.");
+
+    /// <summary>
+    /// Team and assignment mutations are engagement-owned: they stop at
+    /// finalization (team-architecture.md). The database triggers raise the same
+    /// refusal for any code path that misses this guard.
+    /// </summary>
+    private async Task EnsureEngagementOpenAsync(Guid engagementId, CancellationToken token)
+    {
+        var engagement = await _engagements.LoadAsync(engagementId, token).ConfigureAwait(false);
+        var year = await _engagements.LoadYearAsync(engagement.FinancialYearId, token).ConfigureAwait(false);
+        engagement.EnsureOpenForEditing(year.Label);
+    }
 
     private void EnsureAuthenticated()
     {

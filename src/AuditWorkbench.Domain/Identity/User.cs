@@ -27,4 +27,25 @@ public class User
         return new User { UserId = id, Username = username, DisplayName = displayName, Email = email,
             CreatedAtUtc = createdAtUtc, UpdatedAtUtc = createdAtUtc, IsLocalDemo = isLocalDemo };
     }
+
+    /// <summary>
+    /// Disable instead of delete: attribution on every historical record is
+    /// preserved (data-model.md section 8) while all engagement access is
+    /// revoked immediately, because authorization only considers active users.
+    /// </summary>
+    public void Deactivate(string now)
+    {
+        if (!IsActive)
+            throw new ValidationException("Only an active user can be deactivated.");
+        Status = "DISABLED";
+        UpdatedAtUtc = now;
+    }
+
+    public void Reactivate(string now)
+    {
+        if (Status != "DISABLED")
+            throw new ValidationException("Only a deactivated user can be reactivated.");
+        Status = "ACTIVE";
+        UpdatedAtUtc = now;
+    }
 }

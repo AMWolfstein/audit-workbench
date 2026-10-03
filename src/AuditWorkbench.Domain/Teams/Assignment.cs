@@ -26,4 +26,34 @@ public class Assignment
             AssigneeUserId = assignee, ScopeType = scopeType.Trim().ToUpperInvariant(), ScopeId = scopeId.Trim(),
             Title = title, AssignedAtUtc = now, UpdatedAtUtc = now, AssignedBy = assignedBy };
     }
+
+    public bool IsActive => Status == "ACTIVE";
+
+    /// <summary>Stale commands are refused before the conditional update runs (ADR-022).</summary>
+    public void EnsureExpectedVersion(int? expectedRowVersion)
+    {
+        if (expectedRowVersion is not null && expectedRowVersion != RowVersion)
+        {
+            throw new ConcurrencyException(
+                "This assignment changed in another window. Reload the assignment list and try again.");
+        }
+    }
+
+    public void Complete(string now)
+    {
+        if (!IsActive)
+            throw new ValidationException("Only an active assignment can be completed.");
+        Status = "COMPLETED";
+        UpdatedAtUtc = now;
+        RowVersion++;
+    }
+
+    public void Cancel(string now)
+    {
+        if (!IsActive)
+            throw new ValidationException("Only an active assignment can be cancelled.");
+        Status = "CANCELLED";
+        UpdatedAtUtc = now;
+        RowVersion++;
+    }
 }
