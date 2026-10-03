@@ -35,6 +35,8 @@ public sealed class AuditEventRow
 
 public sealed class AuditTrailQuery
 {
+    private const int MaxLimit = 1000;
+
     private readonly AuditWorkbenchDbContext _dbContext;
     private readonly EngagementAuthorizationService _authorization;
 
@@ -49,7 +51,7 @@ public sealed class AuditTrailQuery
     /// authorization (security-model.md section 5): an engagement-scoped read
     /// requires VIEW_AUDIT_TRAIL on that engagement, and unscoped reads only
     /// ever return events of engagements the actor may read under that
-    /// permission, plus workspace-level events that are not engagement-owned.
+    /// permission; workspace-level events additionally require workspace privilege (ADR-024).
     /// </summary>
     public async Task<IReadOnlyList<AuditEventRow>> ListAsync(
         Guid? companyId = null,
@@ -58,6 +60,7 @@ public sealed class AuditTrailQuery
         int limit = 200,
         CancellationToken cancellationToken = default)
     {
+        limit = Math.Clamp(limit, 1, MaxLimit);
         var query = _dbContext.AuditEvents.AsNoTracking().AsQueryable();
 
         if (engagementId is not null)
@@ -71,9 +74,12 @@ public sealed class AuditTrailQuery
             var permitted = (await _authorization
                 .PermittedEngagementIdsAsync(Permissions.ViewAuditTrail, cancellationToken)
                 .ConfigureAwait(false)).Select(id => (Guid?)id).ToList();
-            query = permitted.Count == 0
-                ? query.Where(e => e.EngagementId == null)
-                : query.Where(e => e.EngagementId == null || permitted.Contains(e.EngagementId));
+            // Workspace-level events (no engagement) are visible only to workspace-privileged actors.
+            var includeWorkspaceEvents = await _authorization.HasWorkspacePrivilegeAsync(cancellationToken)
+                .ConfigureAwait(false);
+            query = includeWorkspaceEvents
+                ? query.Where(e => e.EngagementId == null || permitted.Contains(e.EngagementId))
+                : query.Where(e => e.EngagementId != null && permitted.Contains(e.EngagementId));
         }
 
         if (companyId is not null)

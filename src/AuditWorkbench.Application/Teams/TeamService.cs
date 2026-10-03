@@ -36,6 +36,40 @@ public sealed class EngagementAuthorizationService
     }
 
     /// <summary>
+    /// Workspace-level privilege (ADR-024): an active user holding an active Partner or
+    /// Manager membership on any engagement. A workspace with no engagement at all is
+    /// unowned and open to any authenticated actor, so it can be bootstrapped.
+    /// </summary>
+    public async Task<bool> HasWorkspacePrivilegeAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_actor.IsAuthenticated || _actor.UserId == Guid.Empty)
+        {
+            return false;
+        }
+
+        var privileged = await (
+            from member in _db.EngagementMembers.AsNoTracking()
+            join user in _db.Users.AsNoTracking() on member.UserId equals user.UserId
+            join role in _db.Roles.AsNoTracking() on member.RoleId equals role.RoleId
+            where member.UserId == _actor.UserId
+                  && member.Status == "ACTIVE"
+                  && user.Status == "ACTIVE"
+                  && (role.RoleKey == BuiltInRoles.Partner || role.RoleKey == BuiltInRoles.Manager)
+            select member.EngagementMemberId).AnyAsync(cancellationToken).ConfigureAwait(false);
+
+        return privileged || !await _db.Engagements.AnyAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task RequireWorkspacePrivilegeAsync(CancellationToken cancellationToken = default)
+    {
+        if (!await HasWorkspacePrivilegeAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new AuthorizationException(
+                "This action requires an active Partner or Manager membership on an engagement.");
+        }
+    }
+
+    /// <summary>
     /// The engagements whose year-owned records the actor may read under the given
     /// permission. Deny-by-default: an empty result means no engagement access.
     /// </summary>
@@ -78,7 +112,9 @@ public sealed class TeamService
         CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
     {
         EnsureAuthenticated();
-        if (await _db.Users.AnyAsync(x => x.Username == username.Trim().ToLower(), token))
+        await _authorization.RequireWorkspacePrivilegeAsync(token).ConfigureAwait(false);
+        if (await _db.Users.AnyAsync(x => x.Username == (username ?? string.Empty).Trim().ToLowerInvariant(), token)
+                .ConfigureAwait(false))
             throw new ValidationException("That username already exists.");
         var user = User.Create(Guid.NewGuid(), username, displayName, email, IClock.Format(_clock.UtcNow));
         _db.Users.Add(user);
@@ -92,6 +128,7 @@ public sealed class TeamService
         CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
     {
         await _authorization.RequireAsync(engagementId, Permissions.ManageTeam, token);
+        await EnsureEngagementOpenAsync(engagementId, token);
         var role = await _db.Roles.SingleOrDefaultAsync(r => r.RoleKey == roleKey, token)
             ?? throw new ValidationException("That role does not exist.");
         if (!await _db.Users.AnyAsync(u => u.UserId == userId && u.Status == "ACTIVE", token))
@@ -101,7 +138,7 @@ public sealed class TeamService
         var member = EngagementMember.Create(engagementId, userId, role.RoleId, IClock.Format(_clock.UtcNow), _actor.UserId);
         _db.EngagementMembers.Add(member);
         await _audit.AppendAsync(AuditEventType.EngagementMemberAdded, AuditEntityType.EngagementMember,
-            member.EngagementMemberId.ToString("D"), $"{display(userId)} added to the engagement team.",
+            member.EngagementMemberId.ToString("D"), $"{await DisplayAsync(userId, token)} added to the engagement team.",
             engagementId: engagementId, details: AuditDetails.Empty().With("user_id", userId).With("role", role.RoleKey),
             cancellationToken: token);
     }, cancellationToken);
@@ -110,6 +147,7 @@ public sealed class TeamService
         CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
     {
         await _authorization.RequireAsync(engagementId, Permissions.ManageAssignments, token);
+        await EnsureEngagementOpenAsync(engagementId, token);
         if (!await _db.EngagementMembers.AnyAsync(m => m.EngagementId == engagementId && m.UserId == assignee && m.Status == "ACTIVE", token))
             throw new ValidationException("Assignments may only be given to active engagement members.");
         var assignment = Assignment.Create(engagementId, assignee, scopeType, scopeId, title,
@@ -135,12 +173,16 @@ public sealed class TeamService
         var previousRoleKey = (await _db.Roles.AsNoTracking()
             .SingleAsync(r => r.RoleId == member.RoleId, token)).RoleKey;
 
+        if (userId == _actor.UserId && !await RoleHasPermissionAsync(role.RoleId, Permissions.ManageTeam, token))
+            throw new ValidationException(
+                "You cannot change your own role to one that cannot manage the team; another team manager must do it.");
+
         member.EnsureExpectedVersion(expectedRowVersion);
         member.ChangeRole(role.RoleId, IClock.Format(_clock.UtcNow));
 
         await _audit.AppendAsync(AuditEventType.EngagementMemberRoleChanged, AuditEntityType.EngagementMember,
             member.EngagementMemberId.ToString("D"),
-            $"Team role of {display(userId)} changed from {previousRoleKey} to {role.RoleKey}.",
+            $"Team role of {await DisplayAsync(userId, token)} changed from {previousRoleKey} to {role.RoleKey}.",
             engagementId: engagementId,
             details: AuditDetails.Empty().With("user_id", userId)
                 .With("previous_role", previousRoleKey).With("new_role", role.RoleKey),
@@ -164,7 +206,7 @@ public sealed class TeamService
         member.Suspend(IClock.Format(_clock.UtcNow));
 
         await _audit.AppendAsync(AuditEventType.EngagementMemberSuspended, AuditEntityType.EngagementMember,
-            member.EngagementMemberId.ToString("D"), $"{display(userId)} suspended from the engagement team.",
+            member.EngagementMemberId.ToString("D"), $"{await DisplayAsync(userId, token)} suspended from the engagement team.",
             engagementId: engagementId, details: AuditDetails.Empty().With("user_id", userId),
             cancellationToken: token);
     }, cancellationToken);
@@ -180,7 +222,7 @@ public sealed class TeamService
         member.Reactivate(IClock.Format(_clock.UtcNow));
 
         await _audit.AppendAsync(AuditEventType.EngagementMemberReactivated, AuditEntityType.EngagementMember,
-            member.EngagementMemberId.ToString("D"), $"{display(userId)} reactivated on the engagement team.",
+            member.EngagementMemberId.ToString("D"), $"{await DisplayAsync(userId, token)} reactivated on the engagement team.",
             engagementId: engagementId, details: AuditDetails.Empty().With("user_id", userId),
             cancellationToken: token);
     }, cancellationToken);
@@ -231,6 +273,7 @@ public sealed class TeamService
     public Task DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
     {
         EnsureAuthenticated();
+        await _authorization.RequireWorkspacePrivilegeAsync(token).ConfigureAwait(false);
         if (userId == _actor.UserId)
             throw new ValidationException("You cannot deactivate your own account.");
         var user = await LoadUserAsync(userId, token);
@@ -245,6 +288,7 @@ public sealed class TeamService
     public Task ReactivateUserAsync(Guid userId, CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
     {
         EnsureAuthenticated();
+        await _authorization.RequireWorkspacePrivilegeAsync(token).ConfigureAwait(false);
         var user = await LoadUserAsync(userId, token);
 
         user.Reactivate(IClock.Format(_clock.UtcNow));
@@ -253,6 +297,9 @@ public sealed class TeamService
             $"Application user '{user.DisplayName}' reactivated.",
             details: AuditDetails.Empty().With("username", user.Username), cancellationToken: token);
     }, cancellationToken);
+
+    private Task<bool> RoleHasPermissionAsync(Guid roleId, string permission, CancellationToken token) =>
+        _db.RolePermissions.AsNoTracking().AnyAsync(p => p.RoleId == roleId && p.PermissionKey == permission, token);
 
     private async Task<EngagementMember> LoadMemberAsync(Guid engagementId, Guid userId, CancellationToken token) =>
         await _db.EngagementMembers
@@ -287,5 +334,7 @@ public sealed class TeamService
         if (!_actor.IsAuthenticated || _actor.UserId == Guid.Empty)
             throw new AuthorizationException("An authenticated application user is required.");
     }
-    private static string display(Guid id) => $"User {id:D}";
+    private async Task<string> DisplayAsync(Guid id, CancellationToken token) =>
+        await _db.Users.AsNoTracking().Where(u => u.UserId == id).Select(u => u.DisplayName)
+            .FirstOrDefaultAsync(token).ConfigureAwait(false) ?? $"User {id:D}";
 }
