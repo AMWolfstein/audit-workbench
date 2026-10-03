@@ -33,10 +33,15 @@ public sealed class AuditTrailWriter
         string outcome = AuditEventOutcome.Success,
         CancellationToken cancellationToken = default)
     {
-        var last = await _dbContext.AuditEvents
-            .OrderByDescending(e => e.SequenceNo)
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+        // Events appended earlier in the same unit of work are tracked but not yet
+        // saved; they are always newer than anything already persisted.
+        var last = _dbContext.AuditEvents.Local
+                .OrderByDescending(e => e.SequenceNo)
+                .FirstOrDefault()
+            ?? await _dbContext.AuditEvents
+                .OrderByDescending(e => e.SequenceNo)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
 
         var auditEvent = AuditEvent.Create(
             Guid.NewGuid(),

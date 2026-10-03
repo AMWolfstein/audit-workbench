@@ -6,6 +6,7 @@ using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Domain.Engagements;
 using AuditWorkbench.Domain.Finalization;
+using AuditWorkbench.Domain.Identity;
 using AuditWorkbench.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 

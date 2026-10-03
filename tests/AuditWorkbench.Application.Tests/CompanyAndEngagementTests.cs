@@ -87,7 +87,7 @@ public class CompanyAndEngagementTests
         await using var workspace = await TestWorkspace.CreateAsync();
         var companyId = await workspace.CreateCompanyAsync();
         await workspace.ExecuteRawAsync(
-            "UPDATE company SET status = 'ARCHIVED' WHERE company_id = $id", ("$id", companyId.ToString("D")));
+            "UPDATE company SET status = 'ARCHIVED', archived_at_utc = '2026-01-01T00:00:00.000Z' WHERE company_id = $id", ("$id", companyId.ToString("D")));
 
         await Assert.ThrowsAsync<ValidationException>(() => workspace.CreateYearAsync(companyId, "FY2026", 2026));
     }
@@ -131,7 +131,7 @@ public class CompanyAndEngagementTests
         var fy2027 = await workspace.CreateYearAsync(companyId, "FY2027", 2027);
 
         var options = await workspace.UseAsync(scope =>
-            scope.GetRequiredService<EngagementService>().EligiblePriorYearsAsync(fy2027));
+            scope.GetRequiredService<EngagementService>().EligiblePriorYearsAsync(companyId, new DateOnly(2027, 12, 31)));
 
         Assert.Equal(new[] { fy2025 }, options.Select(o => o.EngagementId).ToArray());
         Assert.DoesNotContain(options, o => o.EngagementId == fy2026Draft);

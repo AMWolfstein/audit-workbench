@@ -29,7 +29,7 @@ public class WorkspaceIntegrityTests
         Assert.Equal(SqlMigrationRunner.SchemaVersion,
             await workspace.TextScalarAsync("SELECT max(migration_id) FROM schema_migration"));
         Assert.Equal(0, await workspace.ScalarAsync(
-            "SELECT COUNT(*) FROM schema_migration WHERE checksum IS NULL OR length(checksum) <> 64"));
+            "SELECT COUNT(*) FROM schema_migration WHERE checksum_sha256 IS NULL OR length(checksum_sha256) <> 64"));
     }
 
     [Fact]
@@ -129,7 +129,7 @@ public class WorkspaceIntegrityTests
         Assert.Contains("CHECK", statusError.Message, StringComparison.OrdinalIgnoreCase);
 
         var typeError = await workspace.ExpectRawFailureAsync(
-            "INSERT INTO financial_year (financial_year_id, year_label, period_start, period_end, created_at_utc) " +
+            "INSERT INTO financial_year (financial_year_id, label, period_start, period_end, created_at_utc) " +
             "VALUES ('y1', 'FY2026', 20260101, '2026-12-31', '2026-01-01T00:00:00.000Z')");
         Assert.Contains("TEXT", typeError.Message, StringComparison.OrdinalIgnoreCase);
     }
