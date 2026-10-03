@@ -31,6 +31,11 @@ jobs:
           --logger "console;verbosity=normal"
           --logger "trx;LogFileName=test-results.trx"
           --results-directory test-results
+        continue-on-error: true
+
+      - name: Report test results
+        if: always()
+        run: python3 tools/ci/report_trx.py test-results
 
       - name: Upload test results
         if: always()
