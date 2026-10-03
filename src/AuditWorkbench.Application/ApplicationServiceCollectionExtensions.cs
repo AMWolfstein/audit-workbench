@@ -8,6 +8,7 @@ using AuditWorkbench.Application.DemoData;
 using AuditWorkbench.Application.Engagements;
 using AuditWorkbench.Application.Finalization;
 using AuditWorkbench.Application.FinancialData;
+using AuditWorkbench.Application.Handover;
 using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Infrastructure.Backup;
@@ -48,6 +49,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<FinancialDataService>();
         services.AddScoped<ComparisonService>();
         services.AddScoped<FinalizationService>();
+        services.AddScoped<IClientHandoverPackageService, ClientHandoverPackageService>();
         services.AddScoped<SqliteBackupWriter>();
         services.AddScoped<BackupService>();
         services.AddScoped<DemoDataSeeder>();

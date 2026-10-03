@@ -14,6 +14,8 @@ public class User
     public bool IsLocalDemo { get; private set; }
     public string CreatedAtUtc { get; private set; } = string.Empty;
     public string? UpdatedAtUtc { get; private set; }
+    /// <summary>True for inert attribution-only identities received in a client handover.</summary>
+    public bool IsExternalPrincipal { get; private set; }
     public bool IsActive => Status == "ACTIVE";
 
     public static User Create(Guid id, string username, string displayName, string? email,

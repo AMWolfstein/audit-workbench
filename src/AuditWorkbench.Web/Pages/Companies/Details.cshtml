@@ -14,6 +14,14 @@
     <dt>Created (UTC)</dt><dd>@Model.Company.CreatedAtUtc</dd>
 </dl>
 
+<section class="panel">
+    <h2>Client handover</h2>
+    <p>Export this client, every financial year, finalization evidence, attribution, and archived audit history as an <code>AWB-CLIENT/1.0</code> package.</p>
+    <form method="post" asp-page-handler="Export">
+        <button type="submit">Export client (.awb)</button>
+    </form>
+</section>
+
 <h2>Financial years</h2>
 <p class="muted">
     A company is master data. Each financial year below is an independent engagement with its own data

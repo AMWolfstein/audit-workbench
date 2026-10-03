@@ -62,6 +62,7 @@ public class AuditWorkbenchDbContext : DbContext
             entity.Property(e => e.IsLocalDemo).HasColumnName("is_local_demo");
             entity.Property(e => e.CreatedAtUtc).HasColumnName("created_at_utc");
             entity.Property(e => e.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.Property(e => e.IsExternalPrincipal).HasColumnName("is_external_principal");
         });
 
         modelBuilder.Entity<Role>(entity =>

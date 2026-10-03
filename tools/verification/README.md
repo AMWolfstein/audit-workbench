@@ -13,6 +13,7 @@ temporary directory that it deletes afterwards.
 python3 tools/verification/run_verification.py        # run every check
 python3 tools/verification/run_verification.py -v     # verbose, one line per test
 python3 tools/verification/run_verification.py --demo # print the documented demo scenario
+python3 tools/verification/client_package.py CLIENT.awb # independently verify AWB-CLIENT/1.0
 ```
 
 Expected output of a healthy run:

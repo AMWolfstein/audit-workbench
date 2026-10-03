@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using AuditWorkbench.Application.Companies;
 using AuditWorkbench.Application.Engagements;
+using AuditWorkbench.Application.Handover;
 using AuditWorkbench.Domain.Engagements;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,11 +11,14 @@ public class DetailsModel : WorkbenchPageModel
 {
     private readonly CompanyService _companies;
     private readonly EngagementService _engagements;
+    private readonly IClientHandoverPackageService _handover;
 
-    public DetailsModel(CompanyService companies, EngagementService engagements)
+    public DetailsModel(CompanyService companies, EngagementService engagements,
+        IClientHandoverPackageService handover)
     {
         _companies = companies;
         _engagements = engagements;
+        _handover = handover;
     }
 
     public CompanySummary Company { get; private set; } = default!;
@@ -94,6 +98,23 @@ public class DetailsModel : WorkbenchPageModel
             ReportError(exception);
             await LoadAsync(id, cancellationToken);
             return Page();
+        }
+    }
+
+    public async Task<IActionResult> OnPostExportAsync(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var stream = new MemoryStream();
+            await _handover.ExportAsync(id, stream, cancellationToken);
+            var company = await _companies.GetAsync(id, cancellationToken);
+            var safeName = string.Concat(company.ShortName.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '-'));
+            return File(stream.ToArray(), "application/vnd.auditworkbench.client+zip", $"{safeName}.awb");
+        }
+        catch (Exception exception)
+        {
+            ReportError(exception);
+            return RedirectToPage(new { id });
         }
     }
 
