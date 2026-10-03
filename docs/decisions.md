@@ -219,9 +219,15 @@ A feature that cannot answer these questions should not enter production impleme
 
 ## ADR-023: Evidence storage and `.awb` are separate ports
 
-- **Status:** Accepted foundation; formats/providers deferred.
-- **Decision:** Evidence metadata belongs in the relational database while bytes use `IFileStorage`. `.awb` import/export uses `IAuditEngagementPackageService` and represents one portable point-in-time engagement package, never a live database.
-- **Consequences:** Existing SQLite `AWB-BACKUP/1.0` is retained for MVP compatibility but is not the future `.awb` format. Hashes, consistent snapshots, path safety, encryption/signing, and import collision semantics require dedicated implementation/review.
+- **Status:** Accepted foundation; engagement-rooted transfer superseded by ADR-027.
+- **Decision:** Evidence metadata belongs in the relational database while bytes use `IFileStorage`. A portable `.awb` package is never a mounted database or a workspace backup.
+- **Consequences:** Existing SQLite `AWB-BACKUP/1.0` is retained for local backup compatibility. Client transfer uses the separately versioned and reviewed boundary in ADR-027.
+
+## ADR-027: Client-rooted handover package
+
+- **Status:** Accepted and implemented.
+- **Decision:** `AWB-CLIENT/1.0` and `IClientHandoverPackageService` transfer a complete company and all financial-year engagements. Client-owned ids are preserved so `AWB-MANIFEST/1.0` evidence remains byte-exact. Version 1.0 does not merge an existing client. Financial-year definitions may share the same label and dates under different ids. Source team data is archived history; attribution-only principals are permanently disabled, and the importing actor receives Partner membership on each imported year.
+- **Consequences:** Migration `0005_client_handover` adds append-only import/audit archives and external-principal guards and drops the global financial-year-definition unique index. Export requires `EXPORT_ENGAGEMENT` on every year; import requires workspace privilege. Per-entry hashes, guarded ZIP parsing, dry-run validation, one import transaction, and post-write finalization-manifest verification are mandatory. Package hashes are tamper evidence, not signatures.
 
 ## ADR-024: Workspace-level privilege for user administration, backup and workspace events
 

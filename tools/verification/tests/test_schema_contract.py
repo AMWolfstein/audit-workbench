@@ -15,7 +15,7 @@ FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures"
 class SchemaContractTests(WorkspaceTestCase):
     def test_migrations_are_recorded_with_checksums(self) -> None:
         rows = list(self.workspace.connection.execute("SELECT * FROM schema_migration ORDER BY migration_id"))
-        self.assertEqual([row["migration_id"] for row in rows], ["0001_initial_schema", "0002_integrity_guards", "0003_team_foundation", "0004_engagement_currency_guard"])
+        self.assertEqual([row["migration_id"] for row in rows], ["0001_initial_schema", "0002_integrity_guards", "0003_team_foundation", "0004_engagement_currency_guard", "0005_client_handover"])
         for row in rows:
             self.assertEqual(len(row["checksum_sha256"]), 64)
 
@@ -118,6 +118,39 @@ class SchemaContractTests(WorkspaceTestCase):
                 (fy, account_id),
             )
         self.assertIn("AWB-GUARD-FINANCIAL-DATA-CURRENCY", str(caught.exception))
+
+    def test_external_principal_cannot_be_reactivated_or_given_access(self) -> None:
+        user_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        self.raw_sql(
+            "INSERT INTO app_user(user_id,username,display_name,status,is_local_demo,created_at_utc,is_external_principal) "
+            "VALUES (?,'external.user','External User','DISABLED',0,'2026-01-01T00:00:00.000Z',1)",
+            (user_id,),
+        )
+        with self.assertRaises(sqlite3.IntegrityError) as caught:
+            self.raw_sql("UPDATE app_user SET status='ACTIVE' WHERE user_id=?", (user_id,))
+        self.assertIn("AWB-GUARD-EXTERNAL-PRINCIPAL", str(caught.exception))
+
+        company_id = self.create_company()
+        engagement_id = self.create_year(company_id, "FY2026", 2026)
+        role_id = self.workspace.connection.execute(
+            "SELECT role_id FROM app_role WHERE role_key='PARTNER'"
+        ).fetchone()[0]
+        with self.assertRaises(sqlite3.IntegrityError) as caught:
+            self.raw_sql(
+                "INSERT INTO engagement_member VALUES ('membership',?,?,?,?,?,?,?,1)",
+                (engagement_id, user_id, role_id, "ACTIVE", "2026-01-01T00:00:00.000Z",
+                 "00000000-0000-4000-8000-000000000001", "2026-01-01T00:00:00.000Z"),
+            )
+        self.assertIn("AWB-GUARD-EXTERNAL-PRINCIPAL", str(caught.exception))
+
+    def test_client_import_evidence_is_append_only(self) -> None:
+        self.raw_sql(
+            "INSERT INTO client_import VALUES ('import','package',?,'company','2026-01-01T00:00:00.000Z',?, '{}','{}')",
+            ("a" * 64, "00000000-0000-4000-8000-000000000001"),
+        )
+        with self.assertRaises(sqlite3.IntegrityError) as caught:
+            self.raw_sql("UPDATE client_import SET team_history_json='[]'")
+        self.assertIn("AWB-GUARD-IMPORT-APPEND-ONLY", str(caught.exception))
 
     def test_integrity_checks_pass_on_a_populated_workspace(self) -> None:
         self.seed_demo()

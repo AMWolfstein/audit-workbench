@@ -1,0 +1,52 @@
+@page "/import-client"
+@model AuditWorkbench.Web.Pages.ImportClientModel
+@{
+    ViewData["Title"] = "Import client";
+}
+
+<h1>Import client handover</h1>
+<p class="muted">Upload an <code>AWB-CLIENT/1.0</code> package. Validation reads the complete package before any workspace data is changed.</p>
+
+<form method="post" enctype="multipart/form-data" class="stacked">
+    <div asp-validation-summary="All" class="message error"></div>
+    <label asp-for="Package">Client package</label>
+    <input asp-for="Package" type="file" accept=".awb,application/zip" />
+    <label>
+        <input asp-for="ConfirmImport" type="checkbox" />
+        Import the client if validation succeeds. I understand that version 1.0 preserves all source ids and does not merge an existing client.
+    </label>
+    <p><button class="primary" type="submit">Validate package</button></p>
+</form>
+
+@if (Model.Report is { } report)
+{
+    <section class="panel">
+        <h2>Validation result</h2>
+        <dl class="inline">
+            <dt>Client</dt><dd>@(report.CompanyName ?? "Unknown")</dd>
+            <dt>Package</dt><dd>@(report.PackageId ?? "Unknown")</dd>
+            <dt>Financial years</dt><dd>@report.EngagementCount</dd>
+            <dt>Ready to import</dt><dd>@(report.IsValid ? "Yes" : "No")</dd>
+        </dl>
+        @if (report.Findings.Count == 0)
+        {
+            <div class="message success">All integrity, reference, compatibility, and destination-conflict checks passed.</div>
+        }
+        else
+        {
+            <table>
+                <thead><tr><th>Severity</th><th>Code</th><th>Entity</th><th>Message</th></tr></thead>
+                <tbody>
+                @foreach (var finding in report.Findings)
+                {
+                    <tr><td>@finding.Severity</td><td><code>@finding.Code</code></td><td>@finding.Entity @finding.SourceId</td><td>@finding.Message</td></tr>
+                }
+                </tbody>
+            </table>
+        }
+        @if (report.IsValid && !Model.ConfirmImport)
+        {
+            <p class="hint">Validation made no changes. Re-select the package and check the confirmation box to import.</p>
+        }
+    </section>
+}

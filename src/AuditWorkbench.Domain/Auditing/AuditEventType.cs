@@ -25,6 +25,8 @@ public static class AuditEventType
     public const string UserCreated = "USER_CREATED";
     public const string UserDeactivated = "USER_DEACTIVATED";
     public const string UserReactivated = "USER_REACTIVATED";
+    public const string ClientExported = "CLIENT_EXPORTED";
+    public const string ClientImported = "CLIENT_IMPORTED";
 }
 
 public static class AuditEventOutcome

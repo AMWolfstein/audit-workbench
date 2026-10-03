@@ -8,6 +8,7 @@ using AuditWorkbench.Application.DemoData;
 using AuditWorkbench.Application.Engagements;
 using AuditWorkbench.Application.Finalization;
 using AuditWorkbench.Application.FinancialData;
+using AuditWorkbench.Application.Handover;
 using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Infrastructure.Backup;

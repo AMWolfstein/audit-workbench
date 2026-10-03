@@ -53,8 +53,9 @@ The first MVP proves the year-isolation design only:
 2. enter a small set of financial values;
 3. finalize and lock that engagement;
 4. create the next engagement and explicitly link the finalized prior year;
-5. enter independent current-year values and show comparisons; and
-6. demonstrate, through UI behavior, database constraints, audit events, and tests, that current-year work cannot alter the prior year.
+5. enter independent current-year values and show comparisons;
+6. export/import a complete client history using the validated `AWB-CLIENT/1.0` handover format; and
+7. demonstrate, through UI behavior, database constraints, audit events, and tests, that current-year work cannot alter the prior year.
 
 Trial-balance import, planning, risks, materiality, working papers, review, findings, sign-off workflows, and document exports are deliberately outside this MVP.
 

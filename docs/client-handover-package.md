@@ -1,9 +1,9 @@
 # Client Handover Package (`AWB-CLIENT/1.0`) — design
 
-> **Status: Proposed design. Not implemented.** No schema change or migration exists yet.
-> Decisions D-1 to D-3 (section 9) require owner approval before implementation starts.
-> Source of truth for this design: migrations `0001`–`0004`, the domain/application code and
-> the existing docs at the time of writing.
+> **Status: Implemented (AWB-CLIENT/1.0).** Migration `0005_client_handover`, the
+> `IClientHandoverPackageService`, Razor UI, and package tests implement this specification.
+> Recommended decisions D-1 to D-3 were accepted for version 1.0. The executable schema and
+> application code remain the source of truth.
 
 ## 1. Goal and change of export root
 
@@ -116,7 +116,7 @@ so a collision means the client was already imported or originated in the destin
 | Object | Strategy |
 |---|---|
 | company, engagement, account, financial_data, prior link, manifest | Preserve; existing id → conflict, reject |
-| `financial_year` | same id and identical definition → reuse; same definition, different id → conflict (D-1) |
+| `financial_year` | same id and identical definition → reuse; same definition, different id → preserve and insert (D-1) |
 | `app_user` principals | same id and same username → reuse; id or username used by someone else → conflict; otherwise insert a DISABLED external principal (D-3) |
 | roles | map by `role_key`, never by id |
 | `row_version`, timestamps, `created_by` etc. | preserved |
@@ -238,18 +238,16 @@ apply unchanged:
   earlier and same company). The creator becomes Partner; comparatives read preserved data.
 * The digest chain continues across instances without a break, which is why ids are preserved.
 
-## 9. Decisions required
+## 9. Accepted decisions
 
-* **D-1 — financial-year uniqueness.** The global unique index `ux_financial_year_definition`
-  would reject most handovers, because two instances each create their own "FY2026" with
-  different ids. *Recommended:* a new migration drops the index; financial years become
-  period records referenced by id, and `EnsureFinancialYearAsync` keeps reusing by match.
-  *Alternative:* reject such imports.
-* **D-2 — import target.** *Recommended:* 1.0 imports only into a destination that does not
-  already hold the client: no merge and no hand-back.
-* **D-3 — team history and principals.** *Recommended:* source memberships and assignments are
-  history only; imported users get an external-principal marker with guard triggers.
-  *Alternative:* import memberships as inactive rows.
+* **D-1 — financial-year uniqueness.** Accepted. Migration `0005_client_handover` drops
+  `ux_financial_year_definition`; ids embedded in finalized manifests remain authoritative.
+  Ordinary engagement creation still reuses an exact matching definition.
+* **D-2 — import target.** Accepted. Version 1.0 imports only when the destination does not
+  already hold the client; merge and hand-back remain out of scope.
+* **D-3 — team history and principals.** Accepted. Source memberships and assignments are
+  archived history only. Imported users are disabled external principals protected by
+  database triggers; only the importing user receives live Partner memberships.
 
 ## 10. Required changes
 

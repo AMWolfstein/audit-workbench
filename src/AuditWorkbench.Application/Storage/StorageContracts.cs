@@ -11,9 +11,6 @@ public interface IFileStorage
 
 public sealed record StoredFile(string StorageLocation, long SizeBytes, string Sha256);
 
-/// <summary>Portable .awb import/export boundary; an implementation must never expose a live database file.</summary>
-public interface IAuditEngagementPackageService
-{
-    Task ExportAsync(Guid engagementId, Stream destination, CancellationToken cancellationToken = default);
-    Task<Guid> ImportAsync(Stream package, CancellationToken cancellationToken = default);
-}
+// Engagement-rooted package transfer was superseded by
+// Handover.IClientHandoverPackageService (AWB-CLIENT/1.0). Evidence storage
+// remains engagement-scoped; client handover is intentionally a separate boundary.
