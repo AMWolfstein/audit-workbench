@@ -14,6 +14,9 @@ public abstract class AuditWorkbenchException : Exception
     }
 
     public string Code { get; }
+
+    /// <summary>The engagement the refused operation targeted, when known (used to audit rejections).</summary>
+    public Guid? EngagementId { get; init; }
 }
 
 /// <summary>Input or business-rule validation failed; nothing was written.</summary>

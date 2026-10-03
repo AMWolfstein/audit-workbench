@@ -90,7 +90,10 @@ public class Engagement
         {
             throw new EngagementFinalizedException(
                 $"{financialYearLabel} was finalized on {FinalizedAtUtc} and is read-only. " +
-                "Record the correction in the current financial year instead.");
+                "Record the correction in the current financial year instead.")
+            {
+                EngagementId = EngagementId,
+            };
         }
     }
 

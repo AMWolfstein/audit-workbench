@@ -40,6 +40,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<SqlQueryExecutor>();
         services.AddScoped<AuditTrailWriter>();
         services.AddScoped<AuditTrailQuery>();
+        services.AddScoped<RejectionAuditor>();
         services.AddScoped<EngagementAuthorizationService>();
         services.AddScoped<TeamService>();
         services.AddScoped<CompanyService>();

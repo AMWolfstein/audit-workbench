@@ -32,7 +32,10 @@ public sealed class EngagementAuthorizationService
     public async Task RequireAsync(Guid engagementId, string permission, CancellationToken cancellationToken = default)
     {
         if (!await HasPermissionAsync(engagementId, permission, cancellationToken).ConfigureAwait(false))
-            throw new AuthorizationException("You are not an active engagement member with the required permission.");
+            throw new AuthorizationException("You are not an active engagement member with the required permission.")
+            {
+                EngagementId = engagementId,
+            };
     }
 
     /// <summary>

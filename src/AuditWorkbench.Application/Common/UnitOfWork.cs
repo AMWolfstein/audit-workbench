@@ -1,3 +1,4 @@
+using AuditWorkbench.Application.Auditing;
 using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -14,9 +15,12 @@ public sealed class UnitOfWork
 {
     private readonly AuditWorkbenchDbContext _dbContext;
 
-    public UnitOfWork(AuditWorkbenchDbContext dbContext)
+    private readonly RejectionAuditor _rejections;
+
+    public UnitOfWork(AuditWorkbenchDbContext dbContext, RejectionAuditor rejections)
     {
         _dbContext = dbContext;
+        _rejections = rejections;
     }
 
     public async Task<T> ExecuteAsync<T>(
@@ -39,10 +43,17 @@ public sealed class UnitOfWork
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return result;
         }
-        catch
+        catch (Exception exception)
         {
             await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
             _dbContext.ChangeTracker.Clear();
+
+            // The refused command wrote nothing; the refusal itself is audited in a separate transaction.
+            if (RejectionAuditor.ShouldRecord(exception))
+            {
+                await _rejections.RecordAsync(exception).ConfigureAwait(false);
+            }
+
             throw;
         }
     }
