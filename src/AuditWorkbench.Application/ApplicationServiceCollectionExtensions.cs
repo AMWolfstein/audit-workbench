@@ -49,6 +49,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<FinancialDataService>();
         services.AddScoped<ComparisonService>();
         services.AddScoped<FinalizationService>();
+        services.AddScoped<IClientHandoverPackageService, ClientHandoverPackageService>();
         services.AddScoped<SqliteBackupWriter>();
         services.AddScoped<BackupService>();
         services.AddScoped<DemoDataSeeder>();
