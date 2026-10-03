@@ -29,7 +29,7 @@ jobs:
         run: >
           dotnet test AuditWorkbench.sln --no-build
           --logger "console;verbosity=normal"
-          --logger "trx;LogFileName=test-results.trx"
+          --logger "trx"
           --results-directory test-results
         continue-on-error: true
 
