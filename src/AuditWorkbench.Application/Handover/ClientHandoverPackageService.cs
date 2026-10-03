@@ -371,7 +371,6 @@ public sealed class ClientHandoverPackageService : IClientHandoverPackageService
                 findings.Add(Error("REFERENCE_DANGLING", "prior_year_relationship", prior.RelationshipId.ToString("D"),
                     "The prior engagement must be finalized and earlier than the current engagement."));
         }
-        var yearIds = p.FinancialYears.Select(y => y.FinancialYearId).ToHashSet();
         var principalIds = p.Principals.Select(x => x.UserId).ToHashSet();
         var accountIds = p.Accounts.Select(a => a.AccountId).ToHashSet();
         if (p.Engagements.Any(e => e.CompanyId != p.Company.CompanyId || !yearIds.Contains(e.FinancialYearId)) ||
