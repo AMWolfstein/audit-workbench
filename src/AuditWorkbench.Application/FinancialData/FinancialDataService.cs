@@ -1,5 +1,6 @@
 using AuditWorkbench.Application.Auditing;
 using AuditWorkbench.Application.Common;
+using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Application.Engagements;
 using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Domain.Common;
@@ -73,6 +74,7 @@ public sealed class FinancialDataService
     private readonly SqlQueryExecutor _queries;
     private readonly IClock _clock;
     private readonly ICurrentActor _actor;
+    private readonly EngagementAuthorizationService _authorization;
 
     public FinancialDataService(
         AuditWorkbenchDbContext dbContext,
@@ -81,7 +83,8 @@ public sealed class FinancialDataService
         EngagementService engagements,
         SqlQueryExecutor queries,
         IClock clock,
-        ICurrentActor actor)
+        ICurrentActor actor,
+        EngagementAuthorizationService authorization)
     {
         _dbContext = dbContext;
         _unitOfWork = unitOfWork;
@@ -90,11 +93,13 @@ public sealed class FinancialDataService
         _queries = queries;
         _clock = clock;
         _actor = actor;
+        _authorization = authorization;
     }
 
     public Task<Guid> AddAccountAsync(AddAccountCommand command, CancellationToken cancellationToken = default) =>
         _unitOfWork.ExecuteAsync(async token =>
         {
+            await _authorization.RequireAsync(command.EngagementId, Permissions.EditEngagement, token);
             var engagement = await _engagements.LoadAsync(command.EngagementId, token).ConfigureAwait(false);
             var year = await _engagements.LoadYearAsync(engagement.FinancialYearId, token).ConfigureAwait(false);
             engagement.EnsureOpenForEditing(year.Label);
@@ -169,6 +174,7 @@ public sealed class FinancialDataService
         int? expectedRevisionNo,
         CancellationToken cancellationToken)
     {
+        await _authorization.RequireAsync(engagementId, Permissions.EditEngagement, cancellationToken);
         var engagement = await _engagements.LoadAsync(engagementId, cancellationToken).ConfigureAwait(false);
         var year = await _engagements.LoadYearAsync(engagement.FinancialYearId, cancellationToken)
             .ConfigureAwait(false);
@@ -232,10 +238,12 @@ public sealed class FinancialDataService
     }
 
     /// <summary>Latest revision per account, read through the shared SQL query.</summary>
-    public Task<IReadOnlyList<FinancialValueRow>> GetLatestValuesAsync(
+    public async Task<IReadOnlyList<FinancialValueRow>> GetLatestValuesAsync(
         Guid engagementId,
-        CancellationToken cancellationToken = default) =>
-        _queries.QueryAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await _authorization.RequireAsync(engagementId, Permissions.ViewEngagement, cancellationToken);
+        return await _queries.QueryAsync(
             "latest_financial_values.sql",
             new Dictionary<string, object?> { ["engagement_id"] = engagementId.ToString("D") },
             reader => new FinancialValueRow
@@ -251,13 +259,16 @@ public sealed class FinancialDataService
                 RecordedAtUtc = SqlQueryExecutor.GetNullableString(reader, "recorded_at_utc"),
                 RecordedByDisplayName = SqlQueryExecutor.GetNullableString(reader, "recorded_by_display_name"),
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task<IReadOnlyList<FinancialValueHistoryRow>> GetHistoryAsync(
         Guid engagementId,
         Guid accountId,
-        CancellationToken cancellationToken = default) =>
-        await (
+        CancellationToken cancellationToken = default)
+    {
+        await _authorization.RequireAsync(engagementId, Permissions.ViewEngagement, cancellationToken);
+        return await (
             from value in _dbContext.FinancialData.AsNoTracking()
             join user in _dbContext.Users.AsNoTracking() on value.RecordedBy equals user.UserId
             where value.EngagementId == engagementId && value.AccountId == accountId
@@ -270,4 +281,5 @@ public sealed class FinancialDataService
                 RecordedByDisplayName = user.DisplayName,
                 CorrectionReason = value.CorrectionReason,
             }).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
 }

@@ -55,6 +55,12 @@ public sealed class ConcurrencyException : AuditWorkbenchException
     }
 }
 
+/// <summary>The authenticated user is not a permitted member of the engagement.</summary>
+public sealed class AuthorizationException : AuditWorkbenchException
+{
+    public AuthorizationException(string message) : base("AWB-FORBIDDEN", message) { }
+}
+
 /// <summary>A database integrity guard refused the operation.</summary>
 public sealed class IntegrityGuardException : AuditWorkbenchException
 {

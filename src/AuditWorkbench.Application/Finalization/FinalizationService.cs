@@ -1,5 +1,6 @@
 using AuditWorkbench.Application.Auditing;
 using AuditWorkbench.Application.Common;
+using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Application.Engagements;
 using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Domain.Common;
@@ -24,6 +25,7 @@ public sealed class FinalizationService
     private readonly SqlQueryExecutor _queries;
     private readonly IClock _clock;
     private readonly ICurrentActor _actor;
+    private readonly EngagementAuthorizationService _authorization;
 
     public FinalizationService(
         AuditWorkbenchDbContext dbContext,
@@ -32,7 +34,8 @@ public sealed class FinalizationService
         EngagementService engagements,
         SqlQueryExecutor queries,
         IClock clock,
-        ICurrentActor actor)
+        ICurrentActor actor,
+        EngagementAuthorizationService authorization)
     {
         _dbContext = dbContext;
         _unitOfWork = unitOfWork;
@@ -41,6 +44,7 @@ public sealed class FinalizationService
         _queries = queries;
         _clock = clock;
         _actor = actor;
+        _authorization = authorization;
     }
 
     public static string ConfirmationPhrase(EngagementSummary engagement) =>
@@ -107,6 +111,7 @@ public sealed class FinalizationService
         CancellationToken cancellationToken = default) =>
         _unitOfWork.ExecuteAsync(async token =>
         {
+            await _authorization.RequireAsync(engagementId, Permissions.FinalizeEngagement, token);
             var summary = await _engagements.GetAsync(engagementId, token).ConfigureAwait(false);
             var expectedPhrase = ConfirmationPhrase(summary);
             if (!string.Equals((confirmationText ?? string.Empty).Trim(), expectedPhrase, StringComparison.Ordinal))

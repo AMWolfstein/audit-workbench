@@ -15,6 +15,9 @@ public static class AuditEventType
     public const string DemoDataSeeded = "DEMO_DATA_SEEDED";
     public const string ProtectedWriteRejected = "PROTECTED_WRITE_REJECTED";
     public const string IntegrityCheckFailed = "INTEGRITY_CHECK_FAILED";
+    public const string EngagementMemberAdded = "ENGAGEMENT_MEMBER_ADDED";
+    public const string AssignmentCreated = "ASSIGNMENT_CREATED";
+    public const string UserCreated = "USER_CREATED";
 }
 
 public static class AuditEventOutcome
@@ -31,4 +34,7 @@ public static class AuditEntityType
     public const string FinancialData = "FINANCIAL_DATA";
     public const string PriorYearRelationship = "PRIOR_YEAR_RELATIONSHIP";
     public const string Workspace = "WORKSPACE";
+    public const string EngagementMember = "ENGAGEMENT_MEMBER";
+    public const string Assignment = "ASSIGNMENT";
+    public const string User = "USER";
 }

@@ -8,6 +8,7 @@ using AuditWorkbench.Application.DemoData;
 using AuditWorkbench.Application.Engagements;
 using AuditWorkbench.Application.Finalization;
 using AuditWorkbench.Application.FinancialData;
+using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Infrastructure.Backup;
 using AuditWorkbench.Infrastructure.Identity;
@@ -24,25 +25,23 @@ public static class ApplicationServiceCollectionExtensions
     /// <summary>
     /// Registers the whole modular monolith against one local workspace folder.
     /// </summary>
-    public static IServiceCollection AddAuditWorkbench(this IServiceCollection services, WorkspacePaths paths)
+    public static IServiceCollection AddAuditWorkbench(this IServiceCollection services, WorkspacePaths paths,
+        ICurrentActor? currentActor = null)
     {
         paths.EnsureCreated();
 
         services.AddSingleton(paths);
         services.AddSingleton<IClock, SystemClock>();
-        services.AddSingleton<ICurrentActor, LocalActor>();
-        services.AddSingleton<SqliteConnectionPolicyInterceptor>();
-
-        services.AddDbContext<AuditWorkbenchDbContext>((provider, options) =>
-        {
-            options.UseSqlite(paths.ConnectionString);
-            options.AddInterceptors(provider.GetRequiredService<SqliteConnectionPolicyInterceptor>());
-        });
+        services.AddSingleton<ICurrentActor>(currentActor ?? new LocalActor());
+        services.AddAuditDatabase(
+            new AuditDatabaseOptions(AuditDatabaseProvider.Sqlite, paths.ConnectionString));
 
         services.AddScoped<UnitOfWork>();
         services.AddScoped<SqlQueryExecutor>();
         services.AddScoped<AuditTrailWriter>();
         services.AddScoped<AuditTrailQuery>();
+        services.AddScoped<EngagementAuthorizationService>();
+        services.AddScoped<TeamService>();
         services.AddScoped<CompanyService>();
         services.AddScoped<EngagementService>();
         services.AddScoped<FinancialDataService>();

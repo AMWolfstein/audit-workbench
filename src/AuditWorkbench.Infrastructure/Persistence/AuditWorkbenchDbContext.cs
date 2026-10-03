@@ -3,6 +3,8 @@ using AuditWorkbench.Domain.Companies;
 using AuditWorkbench.Domain.Engagements;
 using AuditWorkbench.Domain.Finalization;
 using AuditWorkbench.Domain.FinancialData;
+using AuditWorkbench.Domain.Identity;
+using AuditWorkbench.Domain.Teams;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuditWorkbench.Infrastructure.Persistence;
@@ -20,7 +22,15 @@ public class AuditWorkbenchDbContext : DbContext
     {
     }
 
-    public DbSet<LocalUser> Users => Set<LocalUser>();
+    public DbSet<User> Users => Set<User>();
+
+    public DbSet<Role> Roles => Set<Role>();
+
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+
+    public DbSet<EngagementMember> EngagementMembers => Set<EngagementMember>();
+
+    public DbSet<Assignment> Assignments => Set<Assignment>();
 
     public DbSet<Company> Companies => Set<Company>();
 
@@ -40,16 +50,62 @@ public class AuditWorkbenchDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<LocalUser>(entity =>
+        modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("app_user");
             entity.HasKey(e => e.UserId);
             entity.Property(e => e.UserId).HasColumnName("user_id").ValueGeneratedNever();
             entity.Property(e => e.Username).HasColumnName("username");
             entity.Property(e => e.DisplayName).HasColumnName("display_name");
+            entity.Property(e => e.Email).HasColumnName("email");
             entity.Property(e => e.Status).HasColumnName("status");
             entity.Property(e => e.IsLocalDemo).HasColumnName("is_local_demo");
             entity.Property(e => e.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.Property(e => e.UpdatedAtUtc).HasColumnName("updated_at_utc");
+        });
+
+        modelBuilder.Entity<Role>(entity =>
+        {
+            entity.ToTable("app_role"); entity.HasKey(e => e.RoleId);
+            entity.Property(e => e.RoleId).HasColumnName("role_id").ValueGeneratedNever();
+            entity.Property(e => e.RoleKey).HasColumnName("role_key");
+            entity.Property(e => e.DisplayName).HasColumnName("display_name");
+            entity.Property(e => e.IsSystem).HasColumnName("is_system");
+            entity.Property(e => e.CreatedAtUtc).HasColumnName("created_at_utc");
+        });
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.ToTable("role_permission"); entity.HasKey(e => new { e.RoleId, e.PermissionKey });
+            entity.Property(e => e.RoleId).HasColumnName("role_id");
+            entity.Property(e => e.PermissionKey).HasColumnName("permission_key");
+        });
+        modelBuilder.Entity<EngagementMember>(entity =>
+        {
+            entity.ToTable("engagement_member"); entity.HasKey(e => e.EngagementMemberId);
+            entity.Property(e => e.EngagementMemberId).HasColumnName("engagement_member_id").ValueGeneratedNever();
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.RoleId).HasColumnName("role_id");
+            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.AddedAtUtc).HasColumnName("added_at_utc");
+            entity.Property(e => e.AddedBy).HasColumnName("added_by");
+            entity.Property(e => e.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.Property(e => e.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
+        });
+        modelBuilder.Entity<Assignment>(entity =>
+        {
+            entity.ToTable("assignment"); entity.HasKey(e => e.AssignmentId);
+            entity.Property(e => e.AssignmentId).HasColumnName("assignment_id").ValueGeneratedNever();
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.AssigneeUserId).HasColumnName("assignee_user_id");
+            entity.Property(e => e.ScopeType).HasColumnName("scope_type");
+            entity.Property(e => e.ScopeId).HasColumnName("scope_id");
+            entity.Property(e => e.Title).HasColumnName("title");
+            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.AssignedAtUtc).HasColumnName("assigned_at_utc");
+            entity.Property(e => e.AssignedBy).HasColumnName("assigned_by");
+            entity.Property(e => e.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.Property(e => e.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
         });
 
         modelBuilder.Entity<Company>(entity =>

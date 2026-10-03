@@ -198,3 +198,31 @@ Before adding a year-specific module, document:
 8. synthetic test fixtures and isolation tests.
 
 A feature that cannot answer these questions should not enter production implementation.
+
+## ADR-020: Central team database; SQLite is non-production
+
+- **Status:** Accepted; supersedes ADR-006 and the single-user parts of ADR-003/ADR-016.
+- **Decision:** Live team engagements use an Application/API and central relational database. PostgreSQL is preferred; SQL Server remains compatible through provider-specific infrastructure. SQLite remains for local development, automated integration tests, and the integrity harness.
+- **Consequences:** `AuditDatabaseOptions` selects providers. SQLite SQL is no longer the production schema definition. Provider-native migrations/guards and execution tests are required before central deployment.
+
+## ADR-021: Explicit engagement membership and data-driven permissions
+
+- **Status:** Accepted.
+- **Decision:** An active `User` gains engagement access only through an active `EngagementMember` whose `Role` has the required `RolePermission`. Initial named roles/mappings are seeded data, not immutable domain rules. Assignments are generic engagement-owned references until audit modules exist.
+- **Consequences:** All engagement queries and commands are deny-by-default. Platform administration does not imply client access. Membership history is retained and finalized with the year.
+
+## ADR-022: Optimistic concurrency
+
+- **Status:** Accepted.
+- **Decision:** Mutable aggregates use explicit numeric `row_version` concurrency tokens and expected-version commands. Stale writes return `AWB-CONCURRENCY`; silent overwrite and automatic business-conflict retry are forbidden.
+- **Consequences:** UI/API must return a clear conflict and support reload/reapply. Provider tests must prove zero-row stale updates. Independent rows remain concurrently editable.
+
+## ADR-023: Evidence storage and `.awb` are separate ports
+
+- **Status:** Accepted foundation; formats/providers deferred.
+- **Decision:** Evidence metadata belongs in the relational database while bytes use `IFileStorage`. `.awb` import/export uses `IAuditEngagementPackageService` and represents one portable point-in-time engagement package, never a live database.
+- **Consequences:** Existing SQLite `AWB-BACKUP/1.0` is retained for MVP compatibility but is not the future `.awb` format. Hashes, consistent snapshots, path safety, encryption/signing, and import collision semantics require dedicated implementation/review.
+
+## Superseded/deferred entries
+
+The earlier “shared/multi-user edition” deferred decision is resolved by ADR-020. Identity mechanism remains deferred, but authentication is now mandatory for production and must populate `ICurrentActor` server-side. The local actor is development-only.

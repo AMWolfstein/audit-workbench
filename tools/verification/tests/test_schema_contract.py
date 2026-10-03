@@ -15,7 +15,7 @@ FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures"
 class SchemaContractTests(WorkspaceTestCase):
     def test_migrations_are_recorded_with_checksums(self) -> None:
         rows = list(self.workspace.connection.execute("SELECT * FROM schema_migration ORDER BY migration_id"))
-        self.assertEqual([row["migration_id"] for row in rows], ["0001_initial_schema", "0002_integrity_guards"])
+        self.assertEqual([row["migration_id"] for row in rows], ["0001_initial_schema", "0002_integrity_guards", "0003_team_foundation"])
         for row in rows:
             self.assertEqual(len(row["checksum_sha256"]), 64)
 

@@ -1,4 +1,6 @@
-# MVP Scope
+# MVP scope
+
+> **Team-first foundation revision:** Preserve the existing MVP while adding provider selection, users, roles/permissions, engagement membership, generic assignments, optimistic concurrency, storage/package contracts, and documentation. PostgreSQL is preferred production; SQLite is test/local only. Trial Balance, GL, materiality, risk, sampling, working-paper, evidence, review, and export workflows remain explicitly out of scope.
 
 ## 1. Goal
 

@@ -1,4 +1,6 @@
-# Security Model
+# Security model
+
+> **Team-first revision:** Production trust moves to the central Application/API. It authenticates requests server-side and resolves `ICurrentActor`; command-supplied actor IDs are never trusted. An active account has no engagement access without active `EngagementMember` plus permission. The local-device controls below remain relevant to the preserved local-development MVP, not sufficient production controls. See [team-architecture.md](team-architecture.md).
 
 ## 1. Objectives and limits
 

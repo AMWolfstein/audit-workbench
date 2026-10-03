@@ -1,4 +1,23 @@
-# Data Model
+# Data model
+
+> **Team-first revision:** The existing year model below is preserved and extended by `User`, data-driven `Role`/`RolePermission`, `EngagementMember`, and generic `Assignment`. Evidence/package objects remain future design.
+
+```mermaid
+erDiagram
+  COMPANY ||--o{ ENGAGEMENT : has
+  ENGAGEMENT ||--o{ ENGAGEMENT_MEMBER : authorizes
+  USER ||--o{ ENGAGEMENT_MEMBER : joins
+  ROLE ||--o{ ENGAGEMENT_MEMBER : grants
+  ROLE ||--o{ ROLE_PERMISSION : contains
+  ENGAGEMENT ||--o{ ASSIGNMENT : owns
+  USER ||--o{ ASSIGNMENT : receives
+  ENGAGEMENT ||--o{ ACCOUNT : owns
+  ACCOUNT ||--o{ FINANCIAL_DATA : revisions
+  ENGAGEMENT ||--o{ AUDIT_EVENT : records
+  USER ||--o{ AUDIT_EVENT : acts
+```
+
+**Implement now:** identity, roles/permissions, membership, assignments, existing financial/finalization/audit model, and concurrency tokens. **Design for future:** audit areas, procedures, working papers, review notes, and evidence metadata/bytes. See [team-architecture.md](team-architecture.md).
 
 ## 1. Modeling principle
 

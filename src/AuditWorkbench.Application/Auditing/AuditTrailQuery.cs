@@ -20,6 +20,8 @@ public sealed class AuditEventRow
 
     public required string Description { get; init; }
 
+    public required Guid ActorUserId { get; init; }
+
     public required string ActorDisplayName { get; init; }
 
     public Guid? CompanyId { get; init; }
@@ -74,6 +76,7 @@ public sealed class AuditTrailQuery
                 EntityType = e.EntityType,
                 EntityId = e.EntityId,
                 Description = e.Description,
+                ActorUserId = e.ActorUserId,
                 ActorDisplayName = e.ActorDisplayName,
                 CompanyId = e.CompanyId,
                 EngagementId = e.EngagementId,

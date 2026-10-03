@@ -1,5 +1,7 @@
 # Architecture
 
+> **Team-first revision:** Production now targets an authenticated Application/API, central PostgreSQL (SQL Server-compatible provider boundary), and `IFileStorage`. SQLite and the local host described below are the preserved MVP/test implementation, not the live team topology. See [team-architecture.md](team-architecture.md), [concurrency-model.md](concurrency-model.md), [storage-architecture.md](storage-architecture.md), and ADR-020.
+
 ## 1. Recommendation
 
 Build a modular monolith using:
