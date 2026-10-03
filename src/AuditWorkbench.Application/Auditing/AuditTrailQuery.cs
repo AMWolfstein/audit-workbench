@@ -1,4 +1,6 @@
+using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Auditing;
+using AuditWorkbench.Domain.Identity;
 using AuditWorkbench.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,12 +36,21 @@ public sealed class AuditEventRow
 public sealed class AuditTrailQuery
 {
     private readonly AuditWorkbenchDbContext _dbContext;
+    private readonly EngagementAuthorizationService _authorization;
 
-    public AuditTrailQuery(AuditWorkbenchDbContext dbContext)
+    public AuditTrailQuery(AuditWorkbenchDbContext dbContext, EngagementAuthorizationService authorization)
     {
         _dbContext = dbContext;
+        _authorization = authorization;
     }
 
+    /// <summary>
+    /// Reads audit events. Query authorization is as important as command
+    /// authorization (security-model.md section 5): an engagement-scoped read
+    /// requires VIEW_AUDIT_TRAIL on that engagement, and unscoped reads only
+    /// ever return events of engagements the actor may read under that
+    /// permission, plus workspace-level events that are not engagement-owned.
+    /// </summary>
     public async Task<IReadOnlyList<AuditEventRow>> ListAsync(
         Guid? companyId = null,
         Guid? engagementId = null,
@@ -49,14 +60,25 @@ public sealed class AuditTrailQuery
     {
         var query = _dbContext.AuditEvents.AsNoTracking().AsQueryable();
 
+        if (engagementId is not null)
+        {
+            await _authorization.RequireAsync(engagementId.Value, Permissions.ViewAuditTrail, cancellationToken)
+                .ConfigureAwait(false);
+            query = query.Where(e => e.EngagementId == engagementId);
+        }
+        else
+        {
+            var permitted = (await _authorization
+                .PermittedEngagementIdsAsync(Permissions.ViewAuditTrail, cancellationToken)
+                .ConfigureAwait(false)).Select(id => (Guid?)id).ToList();
+            query = permitted.Count == 0
+                ? query.Where(e => e.EngagementId == null)
+                : query.Where(e => e.EngagementId == null || permitted.Contains(e.EngagementId));
+        }
+
         if (companyId is not null)
         {
             query = query.Where(e => e.CompanyId == companyId);
-        }
-
-        if (engagementId is not null)
-        {
-            query = query.Where(e => e.EngagementId == engagementId);
         }
 
         if (!string.IsNullOrWhiteSpace(eventType))
@@ -124,5 +146,15 @@ public sealed class AuditTrailQuery
         AuditEventType.PriorYearLinked,
         AuditEventType.BackupCreated,
         AuditEventType.DemoDataSeeded,
+        AuditEventType.EngagementMemberAdded,
+        AuditEventType.EngagementMemberRoleChanged,
+        AuditEventType.EngagementMemberSuspended,
+        AuditEventType.EngagementMemberReactivated,
+        AuditEventType.AssignmentCreated,
+        AuditEventType.AssignmentCompleted,
+        AuditEventType.AssignmentCancelled,
+        AuditEventType.UserCreated,
+        AuditEventType.UserDeactivated,
+        AuditEventType.UserReactivated,
     };
 }

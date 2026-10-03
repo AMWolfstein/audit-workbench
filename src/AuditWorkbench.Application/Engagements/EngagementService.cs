@@ -368,6 +368,7 @@ public sealed class EngagementService
             on engagement.CompanyId equals company.CompanyId
         where _dbContext.EngagementMembers.Any(m => m.EngagementId == engagement.EngagementId
             && m.UserId == _actor.UserId && m.Status == "ACTIVE"
+            && _dbContext.Users.Any(u => u.UserId == m.UserId && u.Status == "ACTIVE")
             && _dbContext.RolePermissions.Any(p => p.RoleId == m.RoleId
                 && p.PermissionKey == Permissions.ViewEngagement))
         select new EngagementSummary
