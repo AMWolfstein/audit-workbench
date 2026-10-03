@@ -359,12 +359,13 @@ public class TeamArchitectureTests
             "SELECT status FROM engagement_member WHERE engagement_id = $e AND user_id = $u",
             ("$e", engagement.ToString("D")), ("$u", manager.ToString("D"))));
 
+        // A deactivated account sees no workspace events; the custodian reads the trail (ADR-024).
+        actor.Become(LocalUser.LocalActorId, LocalUser.LocalActorUsername, LocalUser.LocalActorDisplayName);
         var deactivatedEvent = (await workspace.UseAsync(scope => scope.GetRequiredService<AuditTrailQuery>()
             .ListAsync(eventType: "USER_DEACTIVATED", limit: 500))).Single();
         Assert.Contains("salma", deactivatedEvent.DetailsJson);
 
         // Deactivation is terminal until an explicit reactivation.
-        actor.Become(LocalUser.LocalActorId, LocalUser.LocalActorUsername, LocalUser.LocalActorDisplayName);
         await Assert.ThrowsAsync<ValidationException>(() => workspace.UseAsync(scope =>
             scope.GetRequiredService<TeamService>().DeactivateUserAsync(manager)));
         await workspace.UseAsync(scope => scope.GetRequiredService<TeamService>().ReactivateUserAsync(manager));
@@ -412,8 +413,8 @@ public class TeamArchitectureTests
         // Unscoped reads never leak another engagement's events.
         var visibleToPreparer = await workspace.UseAsync(scope =>
             scope.GetRequiredService<AuditTrailQuery>().ListAsync(limit: 500));
-        Assert.All(visibleToPreparer, row => Assert.Null(row.EngagementId));
-        Assert.Contains(visibleToPreparer, row => row.EventType == "COMPANY_CREATED");
+        // Workspace-level events (no engagement) need workspace privilege too (ADR-024).
+        Assert.Empty(visibleToPreparer);
         Assert.Empty(await workspace.UseAsync(scope => scope.GetRequiredService<AuditTrailQuery>()
             .ListAsync(eventType: "ENGAGEMENT_STATUS_CHANGED", limit: 500)));
 

@@ -91,6 +91,30 @@ class AuditTrailTests(WorkspaceTestCase):
         )
         self.assertFalse(self.workspace.verify_audit_chain())
 
+    def test_rejected_events_share_the_chain_and_the_vocabulary(self) -> None:
+        """Mirrors the .NET RejectionAuditor: a REJECTED event is a normal link in the chain."""
+        info = self.seed_demo()
+        self.workspace._append_audit_event(
+            event_type="PROTECTED_WRITE_REJECTED",
+            entity_type="ENGAGEMENT",
+            entity_id=info["fy2026_engagement_id"],
+            description="A protected write was rejected (AWB-FINALIZED).",
+            company_id=info["company_id"],
+            engagement_id=info["fy2026_engagement_id"],
+            details={"code": "AWB-FINALIZED", "reason": "ENGAGEMENT_FINALIZED"},
+            outcome="REJECTED",
+        )
+        self.workspace.connection.commit()
+        self.assertTrue(self.workspace.verify_audit_chain())
+        rows = self.workspace.connection.execute(
+            "SELECT COUNT(*) AS n, MAX(sequence_no) AS top FROM audit_event"
+        ).fetchone()
+        self.assertEqual(rows["n"], rows["top"])
+        rejected = [e for e in self.workspace.audit_events(limit=1000) if e["outcome"] == "REJECTED"]
+        self.assertEqual([e["event_type"] for e in rejected], ["PROTECTED_WRITE_REJECTED"])
+        with self.assertRaises(Exception):
+            self.raw_sql("UPDATE audit_event SET outcome = 'IGNORED' WHERE outcome = 'REJECTED'")
+
     def test_event_scope_links_company_and_engagement(self) -> None:
         info = self.seed_demo()
         finalization = next(

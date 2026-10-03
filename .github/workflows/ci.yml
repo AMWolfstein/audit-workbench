@@ -31,7 +31,6 @@ jobs:
           --logger "console;verbosity=normal"
           --logger "trx"
           --results-directory test-results
-        continue-on-error: true
 
       - name: Report test results
         if: always()

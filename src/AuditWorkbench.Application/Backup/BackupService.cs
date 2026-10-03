@@ -1,5 +1,6 @@
 using AuditWorkbench.Application.Auditing;
 using AuditWorkbench.Application.Common;
+using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Infrastructure.Backup;
 using AuditWorkbench.Infrastructure.Workspace;
@@ -16,17 +17,20 @@ public sealed class BackupService
     private readonly UnitOfWork _unitOfWork;
     private readonly AuditTrailWriter _auditTrail;
     private readonly WorkspacePaths _paths;
+    private readonly EngagementAuthorizationService _authorization;
 
     public BackupService(
         SqliteBackupWriter writer,
         UnitOfWork unitOfWork,
         AuditTrailWriter auditTrail,
-        WorkspacePaths paths)
+        WorkspacePaths paths,
+        EngagementAuthorizationService authorization)
     {
         _writer = writer;
         _unitOfWork = unitOfWork;
         _auditTrail = auditTrail;
         _paths = paths;
+        _authorization = authorization;
     }
 
     public string DefaultDestination => _paths.BackupsDirectory;
@@ -35,6 +39,9 @@ public sealed class BackupService
         string? destinationDirectory = null,
         CancellationToken cancellationToken = default)
     {
+        // A backup contains every engagement, so it needs workspace privilege (ADR-024).
+        await _authorization.RequireWorkspacePrivilegeAsync(cancellationToken).ConfigureAwait(false);
+
         var package = await _writer.CreateAsync(destinationDirectory, cancellationToken).ConfigureAwait(false);
 
         await _unitOfWork.ExecuteAsync(token => _auditTrail.AppendAsync(

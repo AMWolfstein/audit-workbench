@@ -27,6 +27,31 @@ public class MoneyPolicyTests
     public void RejectsInvalidInput(string input) =>
         Assert.Throws<ValidationException>(() => MoneyPolicy.ParseToMinor(input, 2));
 
+    [Theory]
+    [InlineData("1234,56")]
+    [InlineData("12,34")]
+    [InlineData("1,23")]
+    [InlineData("1,2345")]
+    [InlineData(",123")]
+    [InlineData("1,234,56")]
+    [InlineData("1,234,5678")]
+    [InlineData("1,234.5,6")]
+    [InlineData("1 234")]
+    [InlineData("1.234,56")]
+    public void RejectsCommasThatAreNotValidThousandsGroups(string input)
+    {
+        var error = Assert.Throws<ValidationException>(() => MoneyPolicy.ParseToMinor(input, 2));
+        Assert.Contains("thousands separators", error.Message);
+    }
+
+    [Theory]
+    [InlineData("1,234,567.89", 2, 123_456_789L)]
+    [InlineData("-1,234.56", 2, -123_456L)]
+    [InlineData("999", 2, 99_900L)]
+    [InlineData("850,000,000", 2, 85_000_000_000L)]
+    public void AcceptsValidThousandsGrouping(string input, int scale, long expected) =>
+        Assert.Equal(expected, MoneyPolicy.ParseToMinor(input, scale));
+
     [Fact]
     public void RejectsValuesOutsideSixtyFourBitRange() =>
         Assert.Throws<ValidationException>(() => MoneyPolicy.ParseToMinor("99999999999999999999", 2));
