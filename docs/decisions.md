@@ -235,6 +235,12 @@ A feature that cannot answer these questions should not enter production impleme
 - **Decision:** When a command fails with an authorization refusal or a write against a finalized engagement (application guard or database trigger), `UnitOfWork` rolls the command back and then `RejectionAuditor` appends one `PROTECTED_WRITE_REJECTED` event with outcome `REJECTED` in its own transaction through the normal `AuditTrailWriter`, so `sequence_no` and `previous_event_hash` continue the committed chain. Details hold only the error code and a reason class, never amounts, input or exception text. Recording is best effort and never replaces the original error. No schema change: the `outcome` check and event vocabulary already allowed it, and the Python harness already uses the same canonical hash.
 - **Consequences:** Read-only denials and validation errors are not recorded, to avoid flooding the append-only trail. An actor with no `app_user` row cannot be recorded (actor foreign key). Repeated rejections are visible to engagement members holding `VIEW_AUDIT_TRAIL`; rate limiting remains future work.
 
+## ADR-026: Engagement currency and minor-unit scale are immutable
+
+- **Status:** Accepted.
+- **Decision:** `engagement.currency_code` and `engagement.minor_unit_scale` cannot change after creation (migration 0004, `AWB-GUARD-ENGAGEMENT-IDENTITY`), even while the engagement is a draft. Amounts are stored as integer minor units whose meaning depends on both values, so changing either would silently reinterpret every stored amount.
+- **Consequences:** A wrong currency or scale means creating a correct engagement, not editing. No application code updated these columns, so behavior is unchanged. Added as a new migration because applied migrations are checksummed.
+
 ## Superseded/deferred entries
 
 The earlier “shared/multi-user edition” deferred decision is resolved by ADR-020. Identity mechanism remains deferred, but authentication is now mandatory for production and must populate `ICurrentActor` server-side. The local actor is development-only.

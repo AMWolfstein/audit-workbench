@@ -129,8 +129,8 @@ public class WorkspaceIntegrityTests
         Assert.Contains("CHECK", statusError.Message, StringComparison.OrdinalIgnoreCase);
 
         var typeError = await workspace.ExpectRawFailureAsync(
-            "INSERT INTO financial_year (financial_year_id, label, period_start, period_end, created_at_utc) " +
-            "VALUES ('y1', 'FY2026', 20260101, '2026-12-31', '2026-01-01T00:00:00.000Z')");
+            "UPDATE company SET row_version = 'not-a-number' WHERE company_id = $id",
+            ("$id", companyId.ToString("D")));
         Assert.Contains("TEXT", typeError.Message, StringComparison.OrdinalIgnoreCase);
     }
 }
