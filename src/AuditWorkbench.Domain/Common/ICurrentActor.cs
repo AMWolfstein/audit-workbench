@@ -12,6 +12,12 @@ public interface ICurrentActor
 
     string DisplayName { get; }
 
-    /// <summary>True while the workspace uses the unauthenticated local actor.</summary>
+    /// <summary>Must be established server-side by the configured authentication adapter.</summary>
+    bool IsAuthenticated { get; }
+
+    /// <summary>Authentication adapter name (Local, Windows, OIDC, etc.); never trusted from command input.</summary>
+    string AuthenticationMethod { get; }
+
+    /// <summary>True only for the explicitly non-production local development identity.</summary>
     bool IsLocalDemoIdentity { get; }
 }

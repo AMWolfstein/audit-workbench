@@ -1,5 +1,6 @@
 using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Domain.Companies;
+using AuditWorkbench.Domain.Identity;
 using AuditWorkbench.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -46,7 +47,8 @@ public sealed class WorkspaceInitializer
         if (!await _dbContext.Users.AnyAsync(u => u.UserId == LocalUser.LocalActorId, cancellationToken)
                 .ConfigureAwait(false))
         {
-            _dbContext.Users.Add(LocalUser.CreateLocalActor(IClock.Format(_clock.UtcNow)));
+            _dbContext.Users.Add(User.Create(LocalUser.LocalActorId, LocalUser.LocalActorUsername,
+                LocalUser.LocalActorDisplayName, null, IClock.Format(_clock.UtcNow), isLocalDemo: true));
             await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 

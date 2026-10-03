@@ -61,6 +61,11 @@ public sealed class UnitOfWork
             await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return result;
         }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new ConcurrencyException(
+                "The record changed after it was loaded. Reload it and reapply your changes.");
+        }
         catch (Exception exception) when (SqliteErrorTranslator.IsGuardViolation(exception))
         {
             throw SqliteErrorTranslator.Translate(exception);

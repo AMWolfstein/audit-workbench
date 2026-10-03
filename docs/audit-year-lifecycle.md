@@ -1,4 +1,6 @@
-# Audit-Year Lifecycle
+# Audit year lifecycle
+
+> **Team-first revision:** The lifecycle and finalization invariants below remain. Before every engagement operation the server requires authenticated `ICurrentActor`, active engagement membership, permission, ownership, open state, and expected row version. Membership/assignments are also locked at finalization. See [team-architecture.md](team-architecture.md) and [concurrency-model.md](concurrency-model.md).
 
 ## 1. Engagement is the lifecycle boundary
 

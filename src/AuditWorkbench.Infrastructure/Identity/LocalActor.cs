@@ -16,5 +16,9 @@ public sealed class LocalActor : ICurrentActor
 
     public string DisplayName => LocalUser.LocalActorDisplayName;
 
+    public bool IsAuthenticated => true;
+
+    public string AuthenticationMethod => "LocalDevelopment";
+
     public bool IsLocalDemoIdentity => true;
 }

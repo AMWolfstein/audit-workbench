@@ -3,6 +3,7 @@ using AuditWorkbench.Application.Engagements;
 using AuditWorkbench.Application.Finalization;
 using AuditWorkbench.Application.FinancialData;
 using AuditWorkbench.Domain.Engagements;
+using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Infrastructure.Persistence;
 using AuditWorkbench.Infrastructure.Workspace;
 using Microsoft.Data.Sqlite;
@@ -29,14 +30,14 @@ public sealed class TestWorkspace : IAsyncDisposable
 
     public WorkspacePaths Paths { get; }
 
-    public static async Task<TestWorkspace> CreateAsync()
+    public static async Task<TestWorkspace> CreateAsync(ICurrentActor? actor = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "awb-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
 
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddAuditWorkbench(new WorkspacePaths(root));
+        services.AddAuditWorkbench(new WorkspacePaths(root), actor);
         var provider = services.BuildServiceProvider();
 
         var workspace = new TestWorkspace(root, provider);

@@ -6,7 +6,7 @@ Architecture, product specification and **first MVP implementation** of a local,
 
 ## Architectural direction
 
-Audit Workbench will be a self-contained **.NET 8 LTS ASP.NET Core** application, serving a server-rendered **Razor Pages** interface on the loopback interface only and storing data in a local **SQLite** database. A packaged release will include the .NET runtime and be runnable from a normal user-writable folder without installation, administrator rights, a Windows service, Docker, SQL Server, cloud access, or an internet connection.
+Audit Workbench is evolving into a **team-first .NET audit management system**. The production target is an authenticated Application/API with a central PostgreSQL database and external evidence storage. The existing Razor Pages + SQLite MVP remains intact for local development, automated tests, and invariant verification; SQLite is not the live multi-user production database. See `docs/architecture.md`.
 
 The central invariant is:
 

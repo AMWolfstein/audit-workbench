@@ -1,8 +1,11 @@
 using AuditWorkbench.Application.Auditing;
 using AuditWorkbench.Application.Common;
+using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Domain.Engagements;
+using AuditWorkbench.Domain.Identity;
+using AuditWorkbench.Domain.Teams;
 using AuditWorkbench.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -83,19 +86,22 @@ public sealed class EngagementService
     private readonly AuditTrailWriter _auditTrail;
     private readonly IClock _clock;
     private readonly ICurrentActor _actor;
+    private readonly EngagementAuthorizationService _authorization;
 
     public EngagementService(
         AuditWorkbenchDbContext dbContext,
         UnitOfWork unitOfWork,
         AuditTrailWriter auditTrail,
         IClock clock,
-        ICurrentActor actor)
+        ICurrentActor actor,
+        EngagementAuthorizationService authorization)
     {
         _dbContext = dbContext;
         _unitOfWork = unitOfWork;
         _auditTrail = auditTrail;
         _clock = clock;
         _actor = actor;
+        _authorization = authorization;
     }
 
     public Task<Guid> CreateAsync(CreateEngagementCommand command, CancellationToken cancellationToken = default) =>
@@ -156,6 +162,12 @@ public sealed class EngagementService
 
             _dbContext.Engagements.Add(newEngagement);
 
+            // The creator receives an explicit engagement membership. Account creation alone
+            // never grants access to other engagements.
+            _dbContext.EngagementMembers.Add(EngagementMember.Create(
+                newEngagement.EngagementId, _actor.UserId, BuiltInRoles.PartnerId,
+                IClock.Format(_clock.UtcNow), _actor.UserId));
+
             await _auditTrail.AppendAsync(
                     AuditEventType.EngagementCreated,
                     AuditEntityType.Engagement,
@@ -183,6 +195,7 @@ public sealed class EngagementService
         CancellationToken cancellationToken = default) =>
         _unitOfWork.ExecuteAsync(async token =>
         {
+            await _authorization.RequireAsync(currentEngagementId, Permissions.EditEngagement, token);
             var current = await LoadAsync(currentEngagementId, token).ConfigureAwait(false);
             var currentYear = await LoadYearAsync(current.FinancialYearId, token).ConfigureAwait(false);
             await LinkPriorYearCoreAsync(current, currentYear, priorEngagementId, token).ConfigureAwait(false);
@@ -236,6 +249,7 @@ public sealed class EngagementService
         CancellationToken cancellationToken = default) =>
         _unitOfWork.ExecuteAsync(async token =>
         {
+            await _authorization.RequireAsync(engagementId, Permissions.EditEngagement, token);
             var engagement = await LoadAsync(engagementId, token).ConfigureAwait(false);
             var year = await LoadYearAsync(engagement.FinancialYearId, token).ConfigureAwait(false);
             engagement.EnsureOpenForEditing(year.Label);
@@ -258,6 +272,7 @@ public sealed class EngagementService
 
     public async Task<EngagementSummary> GetAsync(Guid engagementId, CancellationToken cancellationToken = default)
     {
+        await _authorization.RequireAsync(engagementId, Permissions.ViewEngagement, cancellationToken);
         var summary = await BuildSummaryQuery()
             .FirstOrDefaultAsync(e => e.EngagementId == engagementId, cancellationToken)
             .ConfigureAwait(false);
@@ -351,6 +366,10 @@ public sealed class EngagementService
             on engagement.FinancialYearId equals year.FinancialYearId
         join company in _dbContext.Companies.AsNoTracking()
             on engagement.CompanyId equals company.CompanyId
+        where _dbContext.EngagementMembers.Any(m => m.EngagementId == engagement.EngagementId
+            && m.UserId == _actor.UserId && m.Status == "ACTIVE"
+            && _dbContext.RolePermissions.Any(p => p.RoleId == m.RoleId
+                && p.PermissionKey == Permissions.ViewEngagement))
         select new EngagementSummary
         {
             EngagementId = engagement.EngagementId,
