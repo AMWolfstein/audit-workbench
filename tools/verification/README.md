@@ -19,7 +19,7 @@ python3 tools/verification/client_package.py CLIENT.awb # independently verify A
 Expected output of a healthy run:
 
 ```
-Ran 62 tests in ...s
+Ran 69 tests in ...s
 
 OK
 ```
