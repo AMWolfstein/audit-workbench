@@ -420,23 +420,29 @@ public sealed class GeneralLedgerImportService
         {
             var record = await _uploads.LoadRecordAsync(engagementId, uploadId, cancellationToken)
                 .ConfigureAwait(false);
-            await _auditTrail.AppendAsync(
-                    AuditEventType.GlImportFailed,
-                    AuditEntityType.DatasetImport,
-                    record.UploadId.ToString("D"),
-                    $"{FinancialDatasetKind.DisplayName(Kind)} import from '{record.FileName}' was refused. " +
-                    ImportSupport.DescribeBlockingErrors(outcome.Report),
-                    engagementId: engagementId,
-                    details: AuditDetails.Empty()
-                        .With("dataset_kind", Kind)
-                        .With("file_name", record.FileName)
-                        .With("file_sha256", record.Sha256)
-                        .With("validation_status", outcome.Report.ValidationStatus)
-                        .With("error_rows", outcome.Report.ErrorRowCount)
-                        .With("warning_rows", outcome.Report.WarningRowCount)
-                        .With("difference_minor", outcome.Report.DifferenceMinor),
-                    cancellationToken: cancellationToken)
+
+            // The audit writer stages an event for the unit of work that owns it, so
+            // the refusal is given a unit of work of its own here.
+            await _unitOfWork.ExecuteAsync(async token =>
+            {
+                await _auditTrail.AppendAsync(
+                        AuditEventType.GlImportFailed,
+                        AuditEntityType.DatasetImport,
+                        record.UploadId.ToString("D"),
+                        $"{FinancialDatasetKind.DisplayName(Kind)} import from '{record.FileName}' was refused. " +
+                        ImportSupport.DescribeBlockingErrors(outcome.Report),
+                        engagementId: engagementId,
+                        details: AuditDetails.Empty()
+                            .With("dataset_kind", Kind)
+                            .With("file_name", record.FileName)
+                            .With("file_sha256", record.Sha256)
+                            .With("validation_status", outcome.Report.ValidationStatus)
+                            .With("error_rows", outcome.Report.ErrorRowCount)
+                            .With("warning_rows", outcome.Report.WarningRowCount)
+                            .With("difference_minor", outcome.Report.DifferenceMinor),
+                    cancellationToken: token)
                 .ConfigureAwait(false);
+            }, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
