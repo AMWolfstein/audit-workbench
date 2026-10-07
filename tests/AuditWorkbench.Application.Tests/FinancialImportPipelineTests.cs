@@ -74,7 +74,7 @@ public sealed class FinancialImportPipelineTests
         var outcome = await workspace.UseAsync(scope => scope.GetRequiredService<TrialBalanceImportService>()
             .ValidateAsync(engagement, upload, TbMapping(), allowUnbalanced: false));
 
-        Assert.Empty(outcome.Report.Issues.Where(i => i.Severity == IssueSeverity.Error));
+        Assert.DoesNotContain(outcome.Report.Issues, issue => issue.Severity == IssueSeverity.Error);
         Assert.True(outcome.Report.IsBalanced);
         Assert.Equal(15000000, outcome.Report.TotalDebitMinor);
         Assert.Equal(15000000, outcome.Report.TotalCreditMinor);
@@ -230,7 +230,7 @@ public sealed class FinancialImportPipelineTests
 
         var outcome = await workspace.UseAsync(scope => scope.GetRequiredService<GeneralLedgerImportService>()
             .ValidateAsync(engagement, upload, GlMapping(), allowUnbalanced: false));
-        Assert.Empty(outcome.Report.Issues.Where(i => i.Severity == IssueSeverity.Error));
+        Assert.DoesNotContain(outcome.Report.Issues, issue => issue.Severity == IssueSeverity.Error);
         Assert.Equal(4, outcome.Report.RowCount);
         Assert.Equal(2, outcome.Report.OutOfPeriodCount);
         Assert.Contains(ImportIssueCodes.OutOfPeriod, outcome.Report.IssueCounts.Keys);

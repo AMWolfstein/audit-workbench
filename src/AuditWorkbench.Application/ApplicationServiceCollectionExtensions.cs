@@ -14,6 +14,7 @@ using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Domain.Storage;
 using AuditWorkbench.Infrastructure.Backup;
+using AuditWorkbench.Infrastructure.FinancialData;
 using AuditWorkbench.Infrastructure.Identity;
 using AuditWorkbench.Infrastructure.Persistence;
 using AuditWorkbench.Infrastructure.Storage;
@@ -57,6 +58,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<FinancialUploadService>();
         services.AddScoped<TrialBalanceImportService>();
         services.AddScoped<GeneralLedgerImportService>();
+        services.AddScoped<BulkInserter>();
         services.AddScoped<ComparisonService>();
         services.AddScoped<FinalizationService>();
         services.AddScoped<IClientHandoverPackageService, ClientHandoverPackageService>();
