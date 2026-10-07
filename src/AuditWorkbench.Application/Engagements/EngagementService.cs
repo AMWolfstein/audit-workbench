@@ -1,6 +1,7 @@
 using AuditWorkbench.Application.Auditing;
 using AuditWorkbench.Application.Common;
 using AuditWorkbench.Application.Companies;
+using AuditWorkbench.Application.FinancialData;
 using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Domain.Common;
@@ -174,6 +175,13 @@ public sealed class EngagementService
                 newEngagement.EngagementId, _actor.UserId, BuiltInRoles.PartnerId,
                 IClock.Format(_clock.UtcNow), _actor.UserId));
 
+            // Every engagement owns exactly one financial period from the moment it
+            // exists: no trial balance or ledger row can ever be written without a
+            // period context, and a period is never re-used across engagements.
+            var financialPeriod = FinancialPeriodService.CreateForNewEngagement(
+                newEngagement, financialYear, IClock.Format(_clock.UtcNow), _actor.UserId);
+            _dbContext.FinancialPeriods.Add(financialPeriod);
+
             await _auditTrail.AppendAsync(
                     AuditEventType.EngagementCreated,
                     AuditEntityType.Engagement,
@@ -185,7 +193,8 @@ public sealed class EngagementService
                         .With("label", financialYear.Label)
                         .With("period_start", financialYear.PeriodStart)
                         .With("period_end", financialYear.PeriodEnd)
-                        .With("status", newEngagement.Status),
+                        .With("status", newEngagement.Status)
+                        .With("financial_period_id", financialPeriod.FinancialPeriodId.ToString("D")),
                     cancellationToken: token)
                 .ConfigureAwait(false);
 

@@ -19,7 +19,7 @@ python3 tools/verification/client_package.py CLIENT.awb # independently verify A
 Expected output of a healthy run:
 
 ```
-Ran 69 tests in ...s
+Ran 109 tests in ...s
 
 OK
 ```
@@ -66,6 +66,7 @@ asserted from both sides, so the Python and C# digest implementations cannot dri
 | `tests/test_audit_trail.py` | Required event vocabulary, append-only enforcement, hash-chain verification |
 | `tests/test_backup.py` | Backup package layout, checksum and restorability |
 | `tests/test_schema_contract.py` | The manifest fixture and the schema/guard vocabulary |
+| `tests/test_financial_data.py` | Migration 0007: financial periods, TB/GL imports, versioning, roll-forward comparison and their guards |
 
 ## Relationship to the .NET tests
 

@@ -84,6 +84,7 @@ flowchart LR
 | [MVP scope](docs/mvp-scope.md) | Included/excluded behavior, demo scenario, acceptance tests, and phased delivery plan |
 | [Decisions](docs/decisions.md) | Architecture decision records, assumptions, and deferred decisions |
 | [Foundation contract](docs/foundation.md) | Implemented identity, authorization, ownership, concurrency, audit and `.awb` boundaries |
+| [TB & GL imports](docs/financial-data-imports.md) | Financial period, TB/GL import flows, versioning, transaction identity, reconciliation and roll-forward snapshots |
 
 ## Key diagrams
 

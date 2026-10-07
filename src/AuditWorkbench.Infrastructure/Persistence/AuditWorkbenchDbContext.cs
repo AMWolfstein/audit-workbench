@@ -48,6 +48,25 @@ public class AuditWorkbenchDbContext : DbContext
 
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
+    // TB/GL import and financial data foundation (migration 0007).
+    public DbSet<FinancialPeriod> FinancialPeriods => Set<FinancialPeriod>();
+
+    public DbSet<FinancialUpload> FinancialUploads => Set<FinancialUpload>();
+
+    public DbSet<FinancialDatasetImport> DatasetImports => Set<FinancialDatasetImport>();
+
+    public DbSet<TbLine> TbLines => Set<TbLine>();
+
+    public DbSet<GlJournal> GlJournals => Set<GlJournal>();
+
+    public DbSet<GlLine> GlLines => Set<GlLine>();
+
+    public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
+
+    public DbSet<MaterialityRecord> MaterialityRecords => Set<MaterialityRecord>();
+
+    public DbSet<AuditArea> AuditAreas => Set<AuditArea>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -169,6 +188,10 @@ public class AuditWorkbenchDbContext : DbContext
             entity.Property(e => e.DisplayOrder).HasColumnName("display_order");
             entity.Property(e => e.CreatedAtUtc).HasColumnName("created_at_utc");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.NormalizedCode).HasColumnName("normalized_code");
+            entity.Property(e => e.AccountGroup).HasColumnName("account_group");
+            entity.Property(e => e.AccountOrigin).HasColumnName("account_origin");
+            entity.Property(e => e.AuditAreaId).HasColumnName("audit_area_id");
             entity.HasIndex(e => new { e.EngagementId, e.AccountCode }).IsUnique();
         });
 
@@ -238,6 +261,236 @@ public class AuditWorkbenchDbContext : DbContext
             entity.HasIndex(e => e.SequenceNo).IsUnique();
         });
 
+        modelBuilder.Entity<FinancialPeriod>(entity =>
+        {
+            entity.ToTable("financial_period");
+            entity.HasKey(e => e.FinancialPeriodId);
+            entity.Property(e => e.FinancialPeriodId).HasColumnName("financial_period_id").ValueGeneratedNever();
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.FinancialYearId).HasColumnName("financial_year_id");
+            entity.Property(e => e.ReportingDate).HasColumnName("reporting_date");
+            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.Property(e => e.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
+            entity.HasIndex(e => e.EngagementId).IsUnique();
+        });
+
+        modelBuilder.Entity<FinancialUpload>(entity =>
+        {
+            entity.ToTable("financial_upload");
+            entity.HasKey(e => e.UploadId);
+            entity.Property(e => e.UploadId).HasColumnName("upload_id").ValueGeneratedNever();
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.DatasetKind).HasColumnName("dataset_kind");
+            entity.Property(e => e.FileName).HasColumnName("file_name");
+            entity.Property(e => e.ContentType).HasColumnName("content_type");
+            entity.Property(e => e.SizeBytes).HasColumnName("size_bytes");
+            entity.Property(e => e.Sha256).HasColumnName("sha256");
+            entity.Property(e => e.StorageLocation).HasColumnName("storage_location");
+            entity.Property(e => e.DetectedFormat).HasColumnName("detected_format");
+            entity.Property(e => e.DetectedStructure).HasColumnName("detected_structure");
+            entity.Property(e => e.UploadedAtUtc).HasColumnName("uploaded_at_utc");
+            entity.Property(e => e.UploadedBy).HasColumnName("uploaded_by");
+            entity.HasIndex(e => new { e.EngagementId, e.DatasetKind, e.Sha256 });
+        });
+
+        modelBuilder.Entity<FinancialDatasetImport>(entity =>
+        {
+            entity.ToTable("dataset_import");
+            entity.HasKey(e => e.ImportId);
+            entity.Property(e => e.ImportId).HasColumnName("import_id").ValueGeneratedNever();
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.FinancialPeriodId).HasColumnName("financial_period_id");
+            entity.Property(e => e.DatasetKind).HasColumnName("dataset_kind");
+            entity.Property(e => e.ImportNo).HasColumnName("import_no");
+            entity.Property(e => e.SnapshotLabel).HasColumnName("snapshot_label");
+            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.IsActive).HasColumnName("is_active");
+            entity.Property(e => e.SupersededByImportId).HasColumnName("superseded_by_import_id");
+            entity.Property(e => e.RepeatOfImportId).HasColumnName("repeat_of_import_id");
+            entity.Property(e => e.SourceUploadId).HasColumnName("source_upload_id");
+            entity.Property(e => e.SourceFileName).HasColumnName("source_file_name");
+            entity.Property(e => e.SourceFileSha256).HasColumnName("source_file_sha256");
+            entity.Property(e => e.SourceFileSizeBytes).HasColumnName("source_file_size_bytes");
+            entity.Property(e => e.SourceHeaderRowNo).HasColumnName("source_header_row_no");
+            entity.Property(e => e.SourceSheetName).HasColumnName("source_sheet_name");
+            entity.Property(e => e.CoverageThroughDate).HasColumnName("coverage_through_date");
+            entity.Property(e => e.ColumnMappingJson).HasColumnName("column_mapping_json");
+            entity.Property(e => e.FingerprintHash).HasColumnName("fingerprint_hash");
+            entity.Property(e => e.ValidationJson).HasColumnName("validation_json");
+            entity.Property(e => e.ValidationStatus).HasColumnName("validation_status");
+            entity.Property(e => e.RowCount).HasColumnName("row_count");
+            entity.Property(e => e.ValidRowCount).HasColumnName("valid_row_count");
+            entity.Property(e => e.WarningCount).HasColumnName("warning_count");
+            entity.Property(e => e.ErrorCount).HasColumnName("error_count");
+            entity.Property(e => e.OutOfPeriodCount).HasColumnName("out_of_period_count");
+            entity.Property(e => e.TotalDebitMinor).HasColumnName("total_debit_minor");
+            entity.Property(e => e.TotalCreditMinor).HasColumnName("total_credit_minor");
+            entity.Property(e => e.DifferenceMinor).HasColumnName("difference_minor");
+            entity.Property(e => e.IsBalanced).HasColumnName("is_balanced");
+            entity.Property(e => e.UnbalancedOverride).HasColumnName("unbalanced_override");
+            entity.Property(e => e.ImportedAtUtc).HasColumnName("imported_at_utc");
+            entity.Property(e => e.ImportedBy).HasColumnName("imported_by");
+            entity.Property(e => e.FinalizedAtUtc).HasColumnName("finalized_at_utc");
+            entity.Property(e => e.FinalizedBy).HasColumnName("finalized_by");
+            entity.Property(e => e.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
+            entity.HasIndex(e => new { e.EngagementId, e.DatasetKind, e.ImportNo }).IsUnique();
+            entity.HasIndex(e => new { e.EngagementId, e.DatasetKind, e.SourceFileSha256 });
+        });
+
+        modelBuilder.Entity<TbLine>(entity =>
+        {
+            entity.ToTable("tb_line");
+            entity.HasKey(e => e.TbLineId);
+            entity.Property(e => e.TbLineId).HasColumnName("tb_line_id").ValueGeneratedNever();
+            entity.Property(e => e.ImportId).HasColumnName("import_id");
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.FinancialPeriodId).HasColumnName("financial_period_id");
+            entity.Property(e => e.AccountId).HasColumnName("account_id");
+            entity.Property(e => e.LineNo).HasColumnName("line_no");
+            entity.Property(e => e.SourceRowNo).HasColumnName("source_row_no");
+            entity.Property(e => e.AccountCode).HasColumnName("account_code");
+            entity.Property(e => e.AccountName).HasColumnName("account_name");
+            entity.Property(e => e.NormalizedCode).HasColumnName("normalized_code");
+            entity.Property(e => e.DebitMinor).HasColumnName("debit_minor");
+            entity.Property(e => e.CreditMinor).HasColumnName("credit_minor");
+            entity.Property(e => e.BalanceMinor).HasColumnName("balance_minor");
+            entity.Property(e => e.CurrencyCode).HasColumnName("currency_code");
+            entity.Property(e => e.CostCenter).HasColumnName("cost_center");
+            entity.Property(e => e.AccountGroup).HasColumnName("account_group");
+            entity.Property(e => e.ExtraColumnsJson).HasColumnName("extra_columns_json");
+            entity.Property(e => e.RowHash).HasColumnName("row_hash");
+            entity.Property(e => e.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.HasIndex(e => new { e.ImportId, e.AccountCode }).IsUnique();
+            entity.HasIndex(e => new { e.ImportId, e.LineNo });
+        });
+
+        modelBuilder.Entity<GlJournal>(entity =>
+        {
+            entity.ToTable("gl_journal");
+            entity.HasKey(e => e.GlJournalId);
+            entity.Property(e => e.GlJournalId).HasColumnName("gl_journal_id").ValueGeneratedNever();
+            entity.Property(e => e.ImportId).HasColumnName("import_id");
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.FinancialPeriodId).HasColumnName("financial_period_id");
+            entity.Property(e => e.JournalIdentity).HasColumnName("journal_identity");
+            entity.Property(e => e.IdentitySource).HasColumnName("identity_source");
+            entity.Property(e => e.JournalNumber).HasColumnName("journal_number");
+            entity.Property(e => e.JournalSource).HasColumnName("journal_source");
+            entity.Property(e => e.PostingDate).HasColumnName("posting_date");
+            entity.Property(e => e.Reference).HasColumnName("reference");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.CurrencyCode).HasColumnName("currency_code");
+            entity.Property(e => e.PreparedBy).HasColumnName("prepared_by");
+            entity.Property(e => e.LineCount).HasColumnName("line_count");
+            entity.Property(e => e.JournalHash).HasColumnName("journal_hash");
+            entity.Property(e => e.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.HasIndex(e => new { e.ImportId, e.JournalIdentity }).IsUnique();
+        });
+
+        modelBuilder.Entity<GlLine>(entity =>
+        {
+            entity.ToTable("gl_line");
+            entity.HasKey(e => e.GlLineId);
+            entity.Property(e => e.GlLineId).HasColumnName("gl_line_id").ValueGeneratedNever();
+            entity.Property(e => e.GlJournalId).HasColumnName("gl_journal_id");
+            entity.Property(e => e.ImportId).HasColumnName("import_id");
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.FinancialPeriodId).HasColumnName("financial_period_id");
+            entity.Property(e => e.LineNo).HasColumnName("line_no");
+            entity.Property(e => e.LineIdentity).HasColumnName("line_identity");
+            entity.Property(e => e.IdentitySource).HasColumnName("identity_source");
+            entity.Property(e => e.SourceLineNo).HasColumnName("source_line_no");
+            entity.Property(e => e.AccountId).HasColumnName("account_id");
+            entity.Property(e => e.AccountCode).HasColumnName("account_code");
+            entity.Property(e => e.AccountName).HasColumnName("account_name");
+            entity.Property(e => e.TransactionDate).HasColumnName("transaction_date");
+            entity.Property(e => e.PostingDate).HasColumnName("posting_date");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.DebitMinor).HasColumnName("debit_minor");
+            entity.Property(e => e.CreditMinor).HasColumnName("credit_minor");
+            entity.Property(e => e.AmountMinor).HasColumnName("amount_minor");
+            entity.Property(e => e.CurrencyCode).HasColumnName("currency_code");
+            entity.Property(e => e.JournalSource).HasColumnName("journal_source");
+            entity.Property(e => e.Reference).HasColumnName("reference");
+            entity.Property(e => e.PreparedBy).HasColumnName("prepared_by");
+            entity.Property(e => e.IsOutOfPeriod).HasColumnName("is_out_of_period");
+            entity.Property(e => e.LineHash).HasColumnName("line_hash");
+            entity.Property(e => e.ValueHash).HasColumnName("value_hash");
+            entity.Property(e => e.AttributeHash).HasColumnName("attribute_hash");
+            entity.Property(e => e.ExtraColumnsJson).HasColumnName("extra_columns_json");
+            entity.Property(e => e.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.HasIndex(e => new { e.ImportId, e.AccountCode });
+            entity.HasIndex(e => new { e.ImportId, e.TransactionDate });
+        });
+
+        modelBuilder.Entity<ImportJob>(entity =>
+        {
+            entity.ToTable("import_job");
+            entity.HasKey(e => e.JobId);
+            entity.Property(e => e.JobId).HasColumnName("job_id").ValueGeneratedNever();
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.FinancialPeriodId).HasColumnName("financial_period_id");
+            entity.Property(e => e.DatasetKind).HasColumnName("dataset_kind");
+            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.Stage).HasColumnName("stage");
+            entity.Property(e => e.UploadId).HasColumnName("upload_id");
+            entity.Property(e => e.ImportId).HasColumnName("import_id");
+            entity.Property(e => e.ColumnMappingJson).HasColumnName("column_mapping_json");
+            entity.Property(e => e.AttemptNo).HasColumnName("attempt_no");
+            entity.Property(e => e.AllowUnbalanced).HasColumnName("allow_unbalanced");
+            entity.Property(e => e.AllowRepeat).HasColumnName("allow_repeat");
+            entity.Property(e => e.CancelRequested).HasColumnName("cancel_requested");
+            entity.Property(e => e.ProcessedRows).HasColumnName("processed_rows");
+            entity.Property(e => e.TotalRows).HasColumnName("total_rows");
+            entity.Property(e => e.Message).HasColumnName("message");
+            entity.Property(e => e.ErrorCode).HasColumnName("error_code");
+            entity.Property(e => e.RequestedAtUtc).HasColumnName("requested_at_utc");
+            entity.Property(e => e.RequestedBy).HasColumnName("requested_by");
+            entity.Property(e => e.StartedAtUtc).HasColumnName("started_at_utc");
+            entity.Property(e => e.CompletedAtUtc).HasColumnName("completed_at_utc");
+        });
+
+        modelBuilder.Entity<MaterialityRecord>(entity =>
+        {
+            entity.ToTable("engagement_materiality");
+            entity.HasKey(e => e.MaterialityId);
+            entity.Property(e => e.MaterialityId).HasColumnName("materiality_id").ValueGeneratedNever();
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.FinancialPeriodId).HasColumnName("financial_period_id");
+            entity.Property(e => e.VersionNo).HasColumnName("version_no");
+            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.OverallMaterialityMinor).HasColumnName("overall_materiality_minor");
+            entity.Property(e => e.PerformanceMaterialityMinor).HasColumnName("performance_materiality_minor");
+            entity.Property(e => e.ClearlyTrivialThresholdMinor).HasColumnName("clearly_trivial_threshold_minor");
+            entity.Property(e => e.CurrencyCode).HasColumnName("currency_code");
+            entity.Property(e => e.BasisNote).HasColumnName("basis_note");
+            entity.Property(e => e.DeterminedAtUtc).HasColumnName("determined_at_utc");
+            entity.Property(e => e.DeterminedBy).HasColumnName("determined_by");
+            entity.Property(e => e.ApprovedAtUtc).HasColumnName("approved_at_utc");
+            entity.Property(e => e.ApprovedBy).HasColumnName("approved_by");
+            entity.Property(e => e.SupersedesId).HasColumnName("supersedes_id");
+            entity.Property(e => e.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
+            entity.HasIndex(e => new { e.EngagementId, e.VersionNo }).IsUnique();
+        });
+
+        modelBuilder.Entity<AuditArea>(entity =>
+        {
+            entity.ToTable("audit_area");
+            entity.HasKey(e => e.AuditAreaId);
+            entity.Property(e => e.AuditAreaId).HasColumnName("audit_area_id").ValueGeneratedNever();
+            entity.Property(e => e.EngagementId).HasColumnName("engagement_id");
+            entity.Property(e => e.AreaCode).HasColumnName("area_code");
+            entity.Property(e => e.AreaName).HasColumnName("area_name");
+            entity.Property(e => e.DisplayOrder).HasColumnName("display_order");
+            entity.Property(e => e.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.RowVersion).HasColumnName("row_version").IsConcurrencyToken();
+            entity.HasIndex(e => new { e.EngagementId, e.AreaCode }).IsUnique();
+        });
+
         // The tables already declare these foreign keys (migrations are SQL). They are
         // mirrored here, without navigations, only so EF Core inserts parents before
         // children within one SaveChanges; it never creates or alters constraints.
@@ -262,6 +515,33 @@ public class AuditWorkbenchDbContext : DbContext
         modelBuilder.Entity<EngagementMember>().HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<EngagementMember>().HasOne<Role>().WithMany().HasForeignKey(e => e.RoleId).OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<Assignment>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<FinancialPeriod>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialPeriod>().HasOne<FinancialYear>().WithMany().HasForeignKey(e => e.FinancialYearId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialPeriod>().HasOne<User>().WithMany().HasForeignKey(e => e.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialUpload>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialUpload>().HasOne<User>().WithMany().HasForeignKey(e => e.UploadedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialDatasetImport>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialDatasetImport>().HasOne<FinancialPeriod>().WithMany().HasForeignKey(e => e.FinancialPeriodId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialDatasetImport>().HasOne<FinancialUpload>().WithMany().HasForeignKey(e => e.SourceUploadId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<FinancialDatasetImport>().HasOne<User>().WithMany().HasForeignKey(e => e.ImportedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<TbLine>().HasOne<FinancialDatasetImport>().WithMany().HasForeignKey(e => e.ImportId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<TbLine>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<TbLine>().HasOne<Account>().WithMany().HasForeignKey(e => e.AccountId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<GlJournal>().HasOne<FinancialDatasetImport>().WithMany().HasForeignKey(e => e.ImportId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<GlJournal>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<GlLine>().HasOne<GlJournal>().WithMany().HasForeignKey(e => e.GlJournalId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<GlLine>().HasOne<FinancialDatasetImport>().WithMany().HasForeignKey(e => e.ImportId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<GlLine>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<GlLine>().HasOne<Account>().WithMany().HasForeignKey(e => e.AccountId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ImportJob>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ImportJob>().HasOne<FinancialPeriod>().WithMany().HasForeignKey(e => e.FinancialPeriodId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<ImportJob>().HasOne<User>().WithMany().HasForeignKey(e => e.RequestedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MaterialityRecord>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<MaterialityRecord>().HasOne<User>().WithMany().HasForeignKey(e => e.DeterminedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<AuditArea>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<AuditArea>().HasOne<User>().WithMany().HasForeignKey(e => e.CreatedBy).OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<Account>().HasOne<AuditArea>().WithMany().HasForeignKey(e => e.AuditAreaId).OnDelete(DeleteBehavior.NoAction);
 
         // SQLite workspaces store canonical UUID text (ADR-017). Central providers
         // retain their native UUID/uniqueidentifier mappings; provider behavior is

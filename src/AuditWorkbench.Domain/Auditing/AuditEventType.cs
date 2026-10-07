@@ -28,6 +28,27 @@ public static class AuditEventType
     public const string UserReactivated = "USER_REACTIVATED";
     public const string ClientExported = "CLIENT_EXPORTED";
     public const string ClientImported = "CLIENT_IMPORTED";
+
+    // Financial data foundation (TB/GL import & financial period)
+    public const string FinancialUploadReceived = "FINANCIAL_UPLOAD_RECEIVED";
+    public const string ImportJobQueued = "IMPORT_JOB_QUEUED";
+    public const string TbImportStarted = "TB_IMPORT_STARTED";
+    public const string TbImportCompleted = "TB_IMPORT_COMPLETED";
+    public const string TbImportFailed = "TB_IMPORT_FAILED";
+    public const string TbFinalized = "TB_FINALIZED";
+    public const string GlImportStarted = "GL_IMPORT_STARTED";
+    public const string GlImportCompleted = "GL_IMPORT_COMPLETED";
+    public const string GlImportFailed = "GL_IMPORT_FAILED";
+    public const string GlFinalized = "GL_FINALIZED";
+    public const string DatasetActivated = "DATASET_ACTIVATED";
+    public const string DatasetSuperseded = "DATASET_SUPERSEDED";
+    public const string FinancialPeriodUpdated = "FINANCIAL_PERIOD_UPDATED";
+    public const string FinancialPeriodStatusChanged = "FINANCIAL_PERIOD_STATUS_CHANGED";
+    public const string MaterialityRecorded = "MATERIALITY_RECORDED";
+    public const string MaterialityApproved = "MATERIALITY_APPROVED";
+    public const string AuditAreaCreated = "AUDIT_AREA_CREATED";
+    public const string AccountAuditAreaAssigned = "ACCOUNT_AUDIT_AREA_ASSIGNED";
+    public const string ImportJobCancelled = "IMPORT_JOB_CANCELLED";
 }
 
 public static class AuditEventOutcome
@@ -47,4 +68,12 @@ public static class AuditEntityType
     public const string EngagementMember = "ENGAGEMENT_MEMBER";
     public const string Assignment = "ASSIGNMENT";
     public const string User = "USER";
+    public const string FinancialPeriod = "FINANCIAL_PERIOD";
+    public const string FinancialUpload = "FINANCIAL_UPLOAD";
+    public const string DatasetImport = "DATASET_IMPORT";
+    public const string TbLine = "TB_LINE";
+    public const string GlLine = "GL_LINE";
+    public const string ImportJob = "IMPORT_JOB";
+    public const string Materiality = "MATERIALITY";
+    public const string AuditArea = "AUDIT_AREA";
 }
