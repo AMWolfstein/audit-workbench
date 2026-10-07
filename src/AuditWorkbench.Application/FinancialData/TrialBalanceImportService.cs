@@ -153,6 +153,8 @@ public sealed class TrialBalanceImportService
             progress, cancellationToken).ConfigureAwait(false);
         if (outcome.Report.HasErrors)
         {
+            await RecordRefusedImportAsync(engagementId, uploadId, outcome, cancellationToken)
+                .ConfigureAwait(false);
             throw new ValidationException(ImportSupport.DescribeBlockingErrors(outcome.Report));
         }
 
@@ -166,6 +168,21 @@ public sealed class TrialBalanceImportService
             var engagement = await _engagements.LoadAsync(engagementId, token).ConfigureAwait(false);
             var year = await _engagements.LoadYearAsync(engagement.FinancialYearId, token).ConfigureAwait(false);
             var context = await BuildContextAsync(engagementId, period, allowUnbalanced, token).ConfigureAwait(false);
+
+            await _auditTrail.AppendAsync(
+                    AuditEventType.TbImportStarted,
+                    AuditEntityType.DatasetImport,
+                    upload.Record.UploadId.ToString("D"),
+                    $"{FinancialDatasetKind.DisplayName(Kind)} import from '{upload.Record.FileName}' started " +
+                    $"for {year.Label}.",
+                    companyId: engagement.CompanyId,
+                    engagementId: engagementId,
+                    details: AuditDetails.Empty()
+                        .With("dataset_kind", Kind)
+                        .With("file_name", upload.Record.FileName)
+                        .With("file_sha256", upload.Record.Sha256),
+                    cancellationToken: token)
+                .ConfigureAwait(false);
 
             var previousWithSameFile = await _dbContext.DatasetImports.AsNoTracking()
                 .Where(i => i.EngagementId == engagementId && i.DatasetKind == Kind &&
@@ -373,6 +390,42 @@ public sealed class TrialBalanceImportService
                 SqlQueryExecutor.GetNullableInt64(reader, "current_debit_minor"),
                 SqlQueryExecutor.GetNullableInt64(reader, "current_credit_minor")),
             cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Records a refused import. The refusal is written outside the abandoned
+    /// transaction so the trail keeps the attempt even though nothing was
+    /// imported, and a failure of this record never replaces the real error.
+    /// </summary>
+    private async Task RecordRefusedImportAsync(Guid engagementId, Guid uploadId, ImportValidationOutcome outcome,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var record = await _uploads.LoadRecordAsync(engagementId, uploadId, cancellationToken)
+                .ConfigureAwait(false);
+            await _auditTrail.AppendAsync(
+                    AuditEventType.TbImportFailed,
+                    AuditEntityType.DatasetImport,
+                    record.UploadId.ToString("D"),
+                    $"{FinancialDatasetKind.DisplayName(Kind)} import from '{record.FileName}' was refused. " +
+                    ImportSupport.DescribeBlockingErrors(outcome.Report),
+                    engagementId: engagementId,
+                    details: AuditDetails.Empty()
+                        .With("dataset_kind", Kind)
+                        .With("file_name", record.FileName)
+                        .With("file_sha256", record.Sha256)
+                        .With("validation_status", outcome.Report.ValidationStatus)
+                        .With("error_rows", outcome.Report.ErrorRowCount)
+                        .With("warning_rows", outcome.Report.WarningRowCount)
+                        .With("difference_minor", outcome.Report.DifferenceMinor),
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // The caller must still see why the import was refused.
+        }
     }
 
     private async Task<TbImportContext> BuildContextAsync(Guid engagementId, FinancialPeriod period,

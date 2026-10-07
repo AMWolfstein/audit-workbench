@@ -263,6 +263,45 @@ public sealed class FinancialImportPipelineTests
     }
 
     [Fact]
+    public async Task An_import_leaves_a_started_completed_or_failed_trail_but_never_the_dataset()
+    {
+        await using var workspace = await TestWorkspace.CreateAsync();
+        var company = await workspace.CreateCompanyAsync("TB-AUDIT");
+        var engagement = await workspace.CreateYearAsync(company, "FY2026", 2026);
+
+        var accepted = await UploadAsync(workspace, engagement, FinancialDatasetKind.TrialBalance, BalancedTb);
+        await workspace.UseAsync(scope => scope.GetRequiredService<TrialBalanceImportService>()
+            .ImportAsync(engagement, accepted, TbMapping(), allowUnbalanced: false, allowRepeat: false));
+
+        Assert.Equal(1, await workspace.ScalarAsync(
+            "SELECT count(*) FROM audit_event WHERE event_type='TB_IMPORT_STARTED' AND engagement_id=$e",
+            ("$e", engagement.ToString("D"))));
+        Assert.Equal(1, await workspace.ScalarAsync(
+            "SELECT count(*) FROM audit_event WHERE event_type='TB_IMPORT_COMPLETED' AND engagement_id=$e",
+            ("$e", engagement.ToString("D"))));
+        Assert.Equal(0, await workspace.ScalarAsync(
+            "SELECT count(*) FROM audit_event WHERE event_type='TB_IMPORT_FAILED'"));
+
+        // A blocked import is audited too, and the event carries counts rather than
+        // the rows themselves.
+        var refused = await UploadAsync(workspace, engagement, FinancialDatasetKind.TrialBalance, UnbalancedTb);
+        await Assert.ThrowsAsync<ValidationException>(() => workspace.UseAsync(scope =>
+            scope.GetRequiredService<TrialBalanceImportService>()
+                .ImportAsync(engagement, refused, TbMapping(), allowUnbalanced: false, allowRepeat: false)));
+
+        Assert.Equal(1, await workspace.ScalarAsync(
+            "SELECT count(*) FROM audit_event WHERE event_type='TB_IMPORT_FAILED' AND engagement_id=$e",
+            ("$e", engagement.ToString("D"))));
+        Assert.Equal(1, await workspace.ScalarAsync(
+            "SELECT count(*) FROM dataset_import WHERE engagement_id=$e", ("$e", engagement.ToString("D"))));
+        var details = await workspace.TextScalarAsync(
+            "SELECT details_json FROM audit_event WHERE event_type='TB_IMPORT_FAILED'");
+        Assert.Contains("difference_minor", details ?? string.Empty);
+        // The trail records counts and digests, never the imported rows themselves.
+        Assert.True((details ?? string.Empty).Length < 1200, details);
+    }
+
+    [Fact]
     public async Task Two_years_of_the_same_client_never_share_rows()
     {
         await using var workspace = await TestWorkspace.CreateAsync();
