@@ -106,7 +106,7 @@ public sealed class ImportValidationReport
 
     public IReadOnlyDictionary<string, int> IssueCounts => _issueCounts;
 
-    public int DifferenceMinor => TotalDebitMinor - TotalCreditMinor;
+    public long DifferenceMinor => TotalDebitMinor - TotalCreditMinor;
 
     public bool IsBalanced => DifferenceMinor == 0;
 

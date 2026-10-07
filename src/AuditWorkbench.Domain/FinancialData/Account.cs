@@ -43,7 +43,7 @@ public class Account
     public string? AccountGroup { get; private set; }
 
     /// <summary>Provenance of the account master row (manual entry, TB import or GL import).</summary>
-    public string AccountOrigin { get; private set; } = AccountOrigin.Manual;
+    public string AccountOrigin { get; private set; } = AccountOrigins.Manual;
 
     /// <summary>Optional audit-area extension point (audit-area classification is a later phase).</summary>
     public Guid? AuditAreaId { get; private set; }
@@ -66,7 +66,9 @@ public class Account
         accountType = string.IsNullOrWhiteSpace(accountType)
             ? AccountType.Unclassified
             : accountType.Trim().ToUpperInvariant();
-        var origin = string.IsNullOrWhiteSpace(accountOrigin) ? AccountOrigin.Manual : accountOrigin.Trim().ToUpperInvariant();
+        var origin = string.IsNullOrWhiteSpace(accountOrigin)
+            ? AccountOrigins.Manual
+            : accountOrigin.Trim().ToUpperInvariant();
 
         if (accountCode.Length == 0)
         {
@@ -88,7 +90,7 @@ public class Account
             throw new ValidationException($"'{accountType}' is not a supported account type.");
         }
 
-        if (!AccountOrigin.All.Contains(origin))
+        if (!AccountOrigins.All.Contains(origin))
         {
             throw new ValidationException($"'{origin}' is not a supported account origin.");
         }

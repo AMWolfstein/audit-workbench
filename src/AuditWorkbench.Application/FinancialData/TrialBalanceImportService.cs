@@ -444,7 +444,7 @@ public sealed class TrialBalanceImportService
                 now,
                 _actor.UserId,
                 request.AccountGroup,
-                AccountOrigin.TrialBalance);
+                AccountOrigins.TrialBalance);
             nextOrder += 10;
             _dbContext.Accounts.Add(account);
             accountIds[request.NormalizedCode] = account.AccountId;

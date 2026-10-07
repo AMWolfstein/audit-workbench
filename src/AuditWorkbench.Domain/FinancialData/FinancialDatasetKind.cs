@@ -113,8 +113,11 @@ public static class ImportIdentitySource
         : "Client transaction reference";
 }
 
-/// <summary>Provenance of an account master row.</summary>
-public static class AccountOrigin
+/// <summary>
+/// Provenance of an account master row. Named in the plural so the vocabulary can
+/// never be shadowed by <see cref="Account.AccountOrigin"/> inside the entity.
+/// </summary>
+public static class AccountOrigins
 {
     public const string Manual = "MANUAL";
     public const string TrialBalance = "TB";
