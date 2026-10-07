@@ -37,7 +37,7 @@ MIGRATIONS_DIR = REPO_ROOT / "db" / "migrations"
 QUERY_DIR = REPO_ROOT / "db" / "sql"
 
 MANIFEST_VERSION = "AWB-MANIFEST/1.0"
-SCHEMA_VERSION = "0006_foundation_integrity"
+SCHEMA_VERSION = "0007_financial_data_foundation"
 WORKSPACE_FORMAT_VERSION = "1"
 
 OPEN_STATUSES = ("DRAFT", "IN_PROGRESS")
@@ -246,6 +246,18 @@ def parse_amount_to_minor(text: str, scale: int) -> int:
 
 def _load_sql(name: str) -> str:
     return (QUERY_DIR / name).read_text(encoding="utf-8")
+
+
+ACCOUNT_CODE_SEPARATORS = frozenset({"-", ".", "/", "_", ",", "'", '"', "(", ")", " "})
+
+
+def normalize_account_code(account_code: str) -> str:
+    """Mirrors Account.NormalizeCode: upper case with the usual separators removed."""
+    return "".join(
+        character
+        for character in (account_code or "").strip().upper()
+        if character not in ACCOUNT_CODE_SEPARATORS
+    )
 
 
 def new_id() -> str:
@@ -794,7 +806,8 @@ class Workspace:
                 order = display_order
             self.connection.execute(
                 "INSERT INTO account (account_id, engagement_id, account_code, account_name, account_type, "
-                "display_order, created_at_utc, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "display_order, created_at_utc, created_by, normalized_code, account_origin) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'MANUAL')",
                 (
                     account_id,
                     engagement_id,
@@ -804,6 +817,7 @@ class Workspace:
                     order,
                     self.clock.now_iso(),
                     self.actor.user_id,
+                    normalize_account_code(account_code),
                 ),
             )
             self._append_audit_event(
