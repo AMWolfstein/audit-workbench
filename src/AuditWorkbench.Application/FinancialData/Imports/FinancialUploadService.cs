@@ -146,13 +146,14 @@ public sealed class FinancialUploadService
                 .ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
 
+        var priorImports = await PriorImportsWithSameFileAsync(engagementId, datasetKind, probe.Sha256,
+            cancellationToken).ConfigureAwait(false);
         return new FinancialUploadSummary(
             await LoadRecordAsync(engagementId, uploadId, cancellationToken).ConfigureAwait(false),
             structure,
             ImportColumnMapping.Suggest(definitions, structure.Headers),
-            await PriorImportsWithSameFileAsync(engagementId, datasetKind, probe.Sha256, cancellationToken)
-                .ConfigureAwait(false),
-            false);
+            priorImports,
+            priorImports.Count > 0);
     }
 
     /// <summary>

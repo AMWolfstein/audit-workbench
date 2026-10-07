@@ -73,6 +73,8 @@ public sealed class ImportValidationReport
 
     private readonly Dictionary<string, int> _issueCounts = new(StringComparer.Ordinal);
 
+    private readonly Dictionary<string, int> _errorCounts = new(StringComparer.Ordinal);
+
     public ImportValidationReport(string datasetKind)
     {
         DatasetKind = datasetKind;
@@ -110,7 +112,13 @@ public sealed class ImportValidationReport
 
     public bool IsBalanced => DifferenceMinor == 0;
 
-    public bool HasErrors => ErrorRowCount > 0 || _issueCounts.ContainsKey(ImportIssueCodes.UnbalancedTrialBalance);
+    /// <summary>
+    /// Blocking means an error was recorded, whatever its granularity: a row-level
+    /// error or a report-level one such as an unbalanced trial balance. A finding
+    /// that the operator explicitly overrode is recorded as a warning and must not
+    /// keep blocking the import - that is the whole point of the override.
+    /// </summary>
+    public bool HasErrors => ErrorRowCount > 0 || _errorCounts.Count > 0;
 
     public int TotalIssueCount => _issueCounts.Values.Sum();
 
@@ -124,6 +132,10 @@ public sealed class ImportValidationReport
     public void Add(string severity, string code, string message, int? rowNumber = null, string? column = null)
     {
         _issueCounts[code] = _issueCounts.TryGetValue(code, out var count) ? count + 1 : 1;
+        if (severity == IssueSeverity.Error)
+        {
+            _errorCounts[code] = _errorCounts.TryGetValue(code, out var errors) ? errors + 1 : 1;
+        }
         if (_issues.Count < MaxRetainedIssues)
         {
             _issues.Add(new ImportIssue(severity, code, message, rowNumber, column));

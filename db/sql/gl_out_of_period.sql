@@ -6,6 +6,7 @@
 -- the finding can be traced back into the client file.
 SELECT
     l.gl_line_id       AS gl_line_id,
+    l.gl_journal_id    AS gl_journal_id,
     l.source_row_no    AS source_row_no,
     j.journal_number   AS journal_number,
     j.journal_identity AS journal_identity,
