@@ -115,7 +115,11 @@ public sealed class FinancialPeriodService
             year.PeriodEnd,
             createdAtUtc,
             createdBy,
-            FinancialPeriodStatus.Open);
+            // A year that is already finalized arrives locked, exactly like a period
+            // created later for a pre-existing finalized engagement.
+            EngagementStatus.IsFinalized(engagement.Status)
+                ? FinancialPeriodStatus.Locked
+                : FinancialPeriodStatus.Open);
         period.EnsureReportingDateWithin(year.PeriodStart, year.PeriodEnd);
         return period;
     }
