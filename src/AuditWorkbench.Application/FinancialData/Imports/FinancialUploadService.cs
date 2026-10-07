@@ -23,6 +23,7 @@ public sealed record FinancialUploadRecord(
     string Sha256,
     string StorageLocation,
     string DetectedFormat,
+    string DetectedStructure,
     string UploadedAtUtc,
     Guid UploadedBy);
 
@@ -210,7 +211,7 @@ public sealed class FinancialUploadService
 
         return new FinancialUploadRecord(upload.UploadId, upload.EngagementId, upload.DatasetKind, upload.FileName,
             upload.ContentType, upload.SizeBytes, upload.Sha256, upload.StorageLocation, upload.DetectedFormat,
-            upload.UploadedAtUtc, upload.UploadedBy);
+            upload.DetectedStructure, upload.UploadedAtUtc, upload.UploadedBy);
     }
 
     /// <summary>Committed imports that came from exactly this file content.</summary>

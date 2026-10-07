@@ -89,8 +89,8 @@ public sealed class FinancialPeriod
         Guid engagementId,
         Guid financialYearId,
         string reportingDate,
-        Guid createdBy,
         string createdAtUtc,
+        Guid createdBy,
         string? status = null)
     {
         if (string.IsNullOrWhiteSpace(reportingDate) || !DateOnly.TryParse(reportingDate, out _))

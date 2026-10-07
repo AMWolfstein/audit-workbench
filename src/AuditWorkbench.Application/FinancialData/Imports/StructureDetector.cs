@@ -146,7 +146,7 @@ public static class StructureDetector
             ["sheet"] = structure.SheetName,
             ["delimiter"] = structure.Delimiter,
             ["header_row"] = structure.HeaderRowNumber,
-            ["columns"] = structure.Columns(),
+            ["columns"] = StructureDetectorExtensions.Columns(structure),
             ["suggested_mapping"] = JsonSerializer.Deserialize<Dictionary<string, int>>(mapping.ToJson()),
             ["warning"] = structure.Warning,
         };

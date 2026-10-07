@@ -13,7 +13,7 @@ internal static class ImportSupport
         ImportColumnMapping mapping, string datasetKind)
     {
         var definitions = GlFields.For(datasetKind);
-        if (structure.HeaderRowNumber == 0 && structure.Columns == 0)
+        if (structure.HeaderRowNumber == 0 && structure.ColumnCount == 0)
         {
             report.AddError(ImportIssueCodes.EmptyFile, "The file contains no readable header or data rows.");
             return;
@@ -54,11 +54,11 @@ internal static class ImportSupport
 
         foreach (var pair in mapping.Columns)
         {
-            if (pair.Value >= structure.Columns)
+            if (pair.Value >= structure.ColumnCount)
             {
                 report.AddError(ImportIssueCodes.UnknownColumn,
                     $"The mapping for '{DisplayName(definitions, pair.Key)}' points at column {pair.Value + 1}, " +
-                    $"but the file has {structure.Columns} columns.");
+                    $"but the file has {structure.ColumnCount} columns.");
             }
         }
     }
