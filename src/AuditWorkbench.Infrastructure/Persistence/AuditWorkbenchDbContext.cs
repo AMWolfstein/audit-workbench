@@ -263,13 +263,17 @@ public class AuditWorkbenchDbContext : DbContext
         modelBuilder.Entity<EngagementMember>().HasOne<Role>().WithMany().HasForeignKey(e => e.RoleId).OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<Assignment>().HasOne<Engagement>().WithMany().HasForeignKey(e => e.EngagementId).OnDelete(DeleteBehavior.NoAction);
 
-        // Identifiers are stored as canonical lowercase UUID text so a workspace
-        // stays readable with any SQLite tool (ADR-017).
-        foreach (var property in modelBuilder.Model.GetEntityTypes()
-                     .SelectMany(type => type.GetProperties())
-                     .Where(property => property.ClrType == typeof(Guid) || property.ClrType == typeof(Guid?)))
+        // SQLite workspaces store canonical UUID text (ADR-017). Central providers
+        // retain their native UUID/uniqueidentifier mappings; provider behavior is
+        // isolated here rather than leaking into the domain or application layer.
+        if (Database.IsSqlite())
         {
-            property.SetValueConverter(GuidTextConverter.Instance);
+            foreach (var property in modelBuilder.Model.GetEntityTypes()
+                         .SelectMany(type => type.GetProperties())
+                         .Where(property => property.ClrType == typeof(Guid) || property.ClrType == typeof(Guid?)))
+            {
+                property.SetValueConverter(GuidTextConverter.Instance);
+            }
         }
     }
 }

@@ -59,7 +59,16 @@ public sealed class BackupService
         return package;
     }
 
-    public IReadOnlyList<BackupPackage> List() => SqliteBackupWriter.List(_paths.BackupsDirectory);
+    public async Task<IReadOnlyList<BackupPackage>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        await _authorization.RequireWorkspacePrivilegeAsync(cancellationToken).ConfigureAwait(false);
+        return SqliteBackupWriter.List(_paths.BackupsDirectory);
+    }
 
-    public BackupVerificationResult Verify(string packageDirectory) => SqliteBackupWriter.Verify(packageDirectory);
+    public async Task<BackupVerificationResult> VerifyAsync(string packageDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        await _authorization.RequireWorkspacePrivilegeAsync(cancellationToken).ConfigureAwait(false);
+        return SqliteBackupWriter.Verify(packageDirectory);
+    }
 }

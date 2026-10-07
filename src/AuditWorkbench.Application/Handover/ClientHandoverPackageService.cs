@@ -3,8 +3,10 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AuditWorkbench.Application.Auditing;
 using AuditWorkbench.Application.Common;
+using AuditWorkbench.Application.Companies;
 using AuditWorkbench.Application.Finalization;
 using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Auditing;
@@ -39,15 +41,17 @@ public sealed class ClientHandoverPackageService : IClientHandoverPackageService
     private readonly UnitOfWork _uow;
     private readonly AuditTrailWriter _audit;
     private readonly EngagementAuthorizationService _authorization;
+    private readonly CompanyAuthorizationService _companyAuthorization;
     private readonly FinalizationService _finalization;
     private readonly IClock _clock;
     private readonly ICurrentActor _actor;
 
     public ClientHandoverPackageService(AuditWorkbenchDbContext db, UnitOfWork uow, AuditTrailWriter audit,
-        EngagementAuthorizationService authorization, FinalizationService finalization, IClock clock,
-        ICurrentActor actor)
+        EngagementAuthorizationService authorization, CompanyAuthorizationService companyAuthorization,
+        FinalizationService finalization, IClock clock, ICurrentActor actor)
     {
         _db = db; _uow = uow; _audit = audit; _authorization = authorization;
+        _companyAuthorization = companyAuthorization;
         _finalization = finalization; _clock = clock; _actor = actor;
     }
 
@@ -58,6 +62,8 @@ public sealed class ClientHandoverPackageService : IClientHandoverPackageService
 
         await _uow.ExecuteAsync(async token =>
         {
+            await _companyAuthorization.RequireAccessAsync(companyId, cancellationToken: token)
+                .ConfigureAwait(false);
             var company = await _db.Companies.AsNoTracking().SingleOrDefaultAsync(c => c.CompanyId == companyId, token)
                 ?? throw new NotFoundException("That company does not exist.");
             var engagements = await _db.Engagements.AsNoTracking().Where(e => e.CompanyId == companyId)
@@ -172,6 +178,7 @@ public sealed class ClientHandoverPackageService : IClientHandoverPackageService
     public async Task<ClientHandoverValidationReport> ValidateAsync(Stream package,
         CancellationToken cancellationToken = default)
     {
+        await _authorization.RequireWorkspacePrivilegeAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var parsed = await ReadPackageAsync(package, cancellationToken);
@@ -189,13 +196,12 @@ public sealed class ClientHandoverPackageService : IClientHandoverPackageService
     public async Task<ClientHandoverImportResult> ImportAsync(Stream package,
         CancellationToken cancellationToken = default)
     {
+        await _authorization.RequireWorkspacePrivilegeAsync(cancellationToken).ConfigureAwait(false);
         var parsed = await ReadPackageAsync(package, cancellationToken);
         var report = await ValidateParsedAsync(parsed, cancellationToken);
         if (!report.IsValid)
             throw new ValidationException("Client handover validation failed: " +
                 string.Join(" ", report.Findings.Where(f => f.Severity == "ERROR").Select(f => $"{f.Code}: {f.Message}")));
-        await _authorization.RequireWorkspacePrivilegeAsync(cancellationToken);
-
         return await _uow.ExecuteAsync(async token =>
         {
             var connection = _db.Database.GetDbConnection();
@@ -414,7 +420,9 @@ public sealed class ClientHandoverPackageService : IClientHandoverPackageService
             findings.Add(Error("CLIENT_SHORT_NAME_TAKEN", "company", p.Company.CompanyId.ToString("D"), "The client short name is already in use."));
         if (await ClientOwnedIdCollisionAsync(p, token))
             findings.Add(Error("ID_COLLISION", "package", null, "A transferred row id is already used in this workspace."));
-        if (await _db.Database.SqlQueryRaw<int>("SELECT 1 AS Value FROM client_import WHERE package_id={0} LIMIT 1", p.Manifest.PackageId.ToString("D")).AnyAsync(token))
+        if (await _db.Database.SqlQueryRaw<int>(
+                "SELECT 1 AS Value FROM client_import WHERE package_id={0}",
+                _db.Database.IsSqlite() ? p.Manifest.PackageId.ToString("D") : p.Manifest.PackageId).AnyAsync(token))
             findings.Add(Error("PACKAGE_ALREADY_IMPORTED", "package", p.Manifest.PackageId.ToString("D"), "This package was already imported."));
         foreach (var y in p.FinancialYears)
         {
@@ -551,30 +559,31 @@ public sealed class ClientHandoverPackageService : IClientHandoverPackageService
     }
     private async Task<bool> ClientOwnedIdCollisionAsync(ParsedClientPackage p, CancellationToken token)
     {
-        foreach (var (table, ids) in new (string, IEnumerable<Guid>)[]
+        // Identifiers are selected from a fixed query whitelist; package content
+        // is always a bound parameter and can never become SQL syntax.
+        foreach (var (sql, ids) in new (string, IEnumerable<Guid>)[]
         {
-            ("engagement", p.Engagements.Select(x => x.EngagementId)), ("account", p.Accounts.Select(x => x.AccountId)),
-            ("financial_data", p.FinancialData.Select(x => x.FinancialDataId)),
-            ("prior_year_relationship", p.PriorYears.Select(x => x.RelationshipId)),
-            ("finalization_manifest", p.FinalizationManifests.Select(x => x.ManifestId)),
+            ("SELECT 1 AS Value FROM engagement WHERE engagement_id={0}", p.Engagements.Select(x => x.EngagementId)),
+            ("SELECT 1 AS Value FROM account WHERE account_id={0}", p.Accounts.Select(x => x.AccountId)),
+            ("SELECT 1 AS Value FROM financial_data WHERE financial_data_id={0}", p.FinancialData.Select(x => x.FinancialDataId)),
+            ("SELECT 1 AS Value FROM prior_year_relationship WHERE relationship_id={0}", p.PriorYears.Select(x => x.RelationshipId)),
+            ("SELECT 1 AS Value FROM finalization_manifest WHERE manifest_id={0}", p.FinalizationManifests.Select(x => x.ManifestId)),
         })
             foreach (var id in ids)
-                if (await _db.Database.SqlQueryRaw<int>($"SELECT 1 AS Value FROM {table} WHERE {IdColumn(table)}={{0}} LIMIT 1", id.ToString("D")).AnyAsync(token)) return true;
+                if (await _db.Database.SqlQueryRaw<int>(sql,
+                        _db.Database.IsSqlite() ? id.ToString("D") : id).AnyAsync(token)) return true;
         return false;
     }
-    private static string IdColumn(string table) => table switch
-    {
-        "engagement" => "engagement_id", "account" => "account_id", "financial_data" => "financial_data_id",
-        "prior_year_relationship" => "relationship_id", "finalization_manifest" => "manifest_id", _ => throw new ArgumentOutOfRangeException()
-    };
     private static ClientHandoverFinding Error(string code, string entity, string? id, string message) => new(code, "ERROR", entity, id, message);
 
     private static async Task ExecuteAsync(DbConnection connection, DbTransaction transaction, string sql,
         CancellationToken token, params (string Name, object? Value)[] parameters)
     {
-        await using var command = connection.CreateCommand(); command.Transaction = transaction; command.CommandText = sql;
-        foreach (var p in parameters) { var parameter = command.CreateParameter(); parameter.ParameterName = p.Name;
-            parameter.Value = p.Value switch { null => DBNull.Value, Guid g => g.ToString("D"), _ => p.Value }; command.Parameters.Add(parameter); }
+        await using var command = connection.CreateCommand(); command.Transaction = transaction;
+        command.CommandText = CommandText(connection, sql);
+        foreach (var p in parameters) { var parameter = command.CreateParameter();
+            parameter.ParameterName = ParameterName(connection, p.Name);
+            parameter.Value = ParameterValue(connection, p.Value); command.Parameters.Add(parameter); }
         await command.ExecuteNonQueryAsync(token);
     }
     private static async Task<bool> ExistsAsync(DbConnection c, DbTransaction t, string sql, CancellationToken token,
@@ -582,9 +591,27 @@ public sealed class ClientHandoverPackageService : IClientHandoverPackageService
     private static async Task<string?> ScalarAsync(DbConnection connection, DbTransaction transaction, string sql,
         CancellationToken token, params (string Name, object? Value)[] parameters)
     {
-        await using var command = connection.CreateCommand(); command.Transaction = transaction; command.CommandText = sql;
-        foreach (var p in parameters) { var parameter = command.CreateParameter(); parameter.ParameterName = p.Name;
-            parameter.Value = p.Value switch { null => DBNull.Value, Guid g => g.ToString("D"), _ => p.Value }; command.Parameters.Add(parameter); }
+        await using var command = connection.CreateCommand(); command.Transaction = transaction;
+        command.CommandText = CommandText(connection, sql);
+        foreach (var p in parameters) { var parameter = command.CreateParameter();
+            parameter.ParameterName = ParameterName(connection, p.Name);
+            parameter.Value = ParameterValue(connection, p.Value); command.Parameters.Add(parameter); }
         return (await command.ExecuteScalarAsync(token))?.ToString();
     }
+
+    private static bool IsSqlite(DbConnection connection) =>
+        connection.GetType().Name == "SqliteConnection";
+
+    private static string CommandText(DbConnection connection, string sql) =>
+        IsSqlite(connection) ? sql : Regex.Replace(sql, @"\$([A-Za-z_][A-Za-z0-9_]*)", "@$1");
+
+    private static string ParameterName(DbConnection connection, string name) =>
+        IsSqlite(connection) ? name : "@" + name.TrimStart('$', '@', ':');
+
+    private static object ParameterValue(DbConnection connection, object? value) => value switch
+    {
+        null => DBNull.Value,
+        Guid guid when IsSqlite(connection) => guid.ToString("D"),
+        _ => value,
+    };
 }

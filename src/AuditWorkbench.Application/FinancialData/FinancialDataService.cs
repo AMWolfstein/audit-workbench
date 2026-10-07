@@ -249,17 +249,17 @@ public sealed class FinancialDataService
         await _authorization.RequireAsync(engagementId, Permissions.ViewEngagement, cancellationToken);
         return await _queries.QueryAsync(
             "latest_financial_values.sql",
-            new Dictionary<string, object?> { ["engagement_id"] = engagementId.ToString("D") },
+            new Dictionary<string, object?> { ["engagement_id"] = engagementId },
             reader => new FinancialValueRow
             {
-                AccountId = Guid.Parse(reader.GetString(reader.GetOrdinal("account_id"))),
+                AccountId = SqlQueryExecutor.GetNullableGuid(reader, "account_id")!.Value,
                 AccountCode = reader.GetString(reader.GetOrdinal("account_code")),
                 AccountName = reader.GetString(reader.GetOrdinal("account_name")),
                 AccountType = reader.GetString(reader.GetOrdinal("account_type")),
-                DisplayOrder = (int)reader.GetInt64(reader.GetOrdinal("display_order")),
+                DisplayOrder = Convert.ToInt32(reader.GetValue(reader.GetOrdinal("display_order"))),
                 AmountMinor = SqlQueryExecutor.GetNullableInt64(reader, "amount_minor"),
                 RevisionNo = SqlQueryExecutor.GetNullableInt32(reader, "revision_no"),
-                RevisionCount = (int)reader.GetInt64(reader.GetOrdinal("revision_count")),
+                RevisionCount = Convert.ToInt32(reader.GetValue(reader.GetOrdinal("revision_count"))),
                 RecordedAtUtc = SqlQueryExecutor.GetNullableString(reader, "recorded_at_utc"),
                 RecordedByDisplayName = SqlQueryExecutor.GetNullableString(reader, "recorded_by_display_name"),
             },

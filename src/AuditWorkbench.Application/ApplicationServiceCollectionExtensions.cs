@@ -34,8 +34,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSingleton(paths);
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<ICurrentActor>(currentActor ?? new LocalActor());
-        services.AddAuditDatabase(
-            new AuditDatabaseOptions(AuditDatabaseProvider.Sqlite, paths.ConnectionString));
+        services.AddAuditDatabase(AuditDatabaseOptions.LocalSqlite(paths.ConnectionString));
 
         services.AddScoped<UnitOfWork>();
         services.AddScoped<SqlQueryExecutor>();
@@ -43,6 +42,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<AuditTrailQuery>();
         services.AddScoped<RejectionAuditor>();
         services.AddScoped<EngagementAuthorizationService>();
+        services.AddScoped<CompanyAuthorizationService>();
         services.AddScoped<TeamService>();
         services.AddScoped<CompanyService>();
         services.AddScoped<EngagementService>();

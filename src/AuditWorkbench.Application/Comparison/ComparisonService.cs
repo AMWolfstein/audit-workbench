@@ -47,8 +47,8 @@ public sealed class ComparisonService
                 "comparative_values.sql",
                 new Dictionary<string, object?>
                 {
-                    ["current_engagement_id"] = current.EngagementId.ToString("D"),
-                    ["prior_engagement_id"] = prior?.EngagementId.ToString("D"),
+                    ["current_engagement_id"] = current.EngagementId,
+                    ["prior_engagement_id"] = prior?.EngagementId,
                 },
                 reader => new ComparativeRow
                 {
@@ -58,8 +58,8 @@ public sealed class ComparisonService
                     CurrentAmountMinor = SqlQueryExecutor.GetNullableInt64(reader, "current_amount_minor"),
                     PriorRevisionNo = SqlQueryExecutor.GetNullableInt32(reader, "prior_revision_no"),
                     CurrentRevisionNo = SqlQueryExecutor.GetNullableInt32(reader, "current_revision_no"),
-                    IsNewAccount = reader.GetInt64(reader.GetOrdinal("is_new_account")) == 1,
-                    IsMissingInCurrent = reader.GetInt64(reader.GetOrdinal("is_missing_in_current")) == 1,
+                    IsNewAccount = Convert.ToInt64(reader.GetValue(reader.GetOrdinal("is_new_account"))) == 1,
+                    IsMissingInCurrent = Convert.ToInt64(reader.GetValue(reader.GetOrdinal("is_missing_in_current"))) == 1,
                 },
                 cancellationToken)
             .ConfigureAwait(false);

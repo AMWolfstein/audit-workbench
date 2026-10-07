@@ -22,7 +22,8 @@ public class BackupModel : WorkbenchPageModel
     [BindProperty]
     public string? DestinationDirectory { get; set; }
 
-    public void OnGet() => Packages = _backups.List();
+    public async Task OnGetAsync(CancellationToken cancellationToken) =>
+        Packages = await _backups.ListAsync(cancellationToken);
 
     public async Task<IActionResult> OnPostCreateAsync(CancellationToken cancellationToken)
     {
@@ -39,11 +40,12 @@ public class BackupModel : WorkbenchPageModel
         return RedirectToPage();
     }
 
-    public IActionResult OnPostVerify(string packageDirectory)
+    public async Task<IActionResult> OnPostVerifyAsync(string packageDirectory,
+        CancellationToken cancellationToken)
     {
         try
         {
-            Verification = _backups.Verify(packageDirectory);
+            Verification = await _backups.VerifyAsync(packageDirectory, cancellationToken);
             if (Verification.IsValid)
             {
                 ReportSuccess($"Backup '{Verification.Name}' verified: checksums and database integrity are correct.");

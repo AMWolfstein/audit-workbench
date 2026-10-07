@@ -23,6 +23,9 @@ public static class SqliteErrorTranslator
         var guardIndex = message.IndexOf(GuardPrefix, StringComparison.Ordinal);
         if (guardIndex < 0)
         {
+            if (message.Contains("audit_event.sequence_no", StringComparison.Ordinal))
+                return new ConcurrencyException(
+                    "Another audit event was committed concurrently. Retry the operation.");
             return message.Contains("UNIQUE constraint failed", StringComparison.Ordinal)
                 ? new ValidationException("That record already exists in this workspace.")
                 : message.Contains("FOREIGN KEY constraint failed", StringComparison.Ordinal)

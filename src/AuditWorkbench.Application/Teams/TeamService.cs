@@ -11,6 +11,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuditWorkbench.Application.Teams;
 
+public sealed record AssignmentRow(
+    Guid AssignmentId,
+    Guid EngagementId,
+    Guid AssigneeUserId,
+    string ScopeType,
+    string ScopeId,
+    string Title,
+    string Status,
+    string UpdatedAtUtc,
+    int RowVersion);
+
 /// <summary>Engagement-scoped access policy. An application account alone grants no client access.</summary>
 public sealed class EngagementAuthorizationService
 {
@@ -151,7 +162,11 @@ public sealed class TeamService
     {
         await _authorization.RequireAsync(engagementId, Permissions.ManageAssignments, token);
         await EnsureEngagementOpenAsync(engagementId, token);
-        if (!await _db.EngagementMembers.AnyAsync(m => m.EngagementId == engagementId && m.UserId == assignee && m.Status == "ACTIVE", token))
+        if (!await (from member in _db.EngagementMembers
+                    join user in _db.Users on member.UserId equals user.UserId
+                    where member.EngagementId == engagementId && member.UserId == assignee
+                          && member.Status == "ACTIVE" && user.Status == "ACTIVE"
+                    select member.EngagementMemberId).AnyAsync(token))
             throw new ValidationException("Assignments may only be given to active engagement members.");
         var assignment = Assignment.Create(engagementId, assignee, scopeType, scopeId, title,
             IClock.Format(_clock.UtcNow), _actor.UserId);
@@ -228,6 +243,50 @@ public sealed class TeamService
             member.EngagementMemberId.ToString("D"), $"{await DisplayAsync(userId, token)} reactivated on the engagement team.",
             engagementId: engagementId, details: AuditDetails.Empty().With("user_id", userId),
             cancellationToken: token);
+    }, cancellationToken);
+
+    /// <summary>
+    /// Returns engagement-scoped assignments. Assignment managers see the full list;
+    /// other members can see only work assigned to their server-resolved identity.
+    /// </summary>
+    public async Task<IReadOnlyList<AssignmentRow>> ListAssignmentsAsync(Guid engagementId,
+        CancellationToken cancellationToken = default)
+    {
+        await _authorization.RequireAsync(engagementId, Permissions.ViewEngagement, cancellationToken)
+            .ConfigureAwait(false);
+        var canManage = await _authorization.HasPermissionAsync(
+            engagementId, Permissions.ManageAssignments, cancellationToken).ConfigureAwait(false);
+        return await _db.Assignments.AsNoTracking()
+            .Where(a => a.EngagementId == engagementId && (canManage || a.AssigneeUserId == _actor.UserId))
+            .OrderBy(a => a.Status).ThenBy(a => a.Title)
+            .Select(a => new AssignmentRow(a.AssignmentId, a.EngagementId, a.AssigneeUserId,
+                a.ScopeType, a.ScopeId, a.Title, a.Status, a.UpdatedAtUtc, a.RowVersion))
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Reassigns active work and retains old/new assignees in the audit history.</summary>
+    public Task ReassignAsync(Guid engagementId, Guid assignmentId, Guid newAssignee,
+        int? expectedRowVersion = null, CancellationToken cancellationToken = default) => _uow.ExecuteAsync(async token =>
+    {
+        await _authorization.RequireAsync(engagementId, Permissions.ManageAssignments, token);
+        var assignment = await LoadAssignmentAsync(engagementId, assignmentId, token);
+        await EnsureEngagementOpenAsync(engagementId, token);
+        if (!await (from member in _db.EngagementMembers
+                    join user in _db.Users on member.UserId equals user.UserId
+                    where member.EngagementId == engagementId && member.UserId == newAssignee
+                          && member.Status == "ACTIVE" && user.Status == "ACTIVE"
+                    select member.EngagementMemberId).AnyAsync(token))
+            throw new ValidationException("Assignments may only be given to active engagement members.");
+
+        assignment.EnsureExpectedVersion(expectedRowVersion);
+        var previous = assignment.AssigneeUserId;
+        assignment.Reassign(newAssignee, IClock.Format(_clock.UtcNow));
+        await _audit.AppendAsync(AuditEventType.AssignmentReassigned, AuditEntityType.Assignment,
+            assignment.AssignmentId.ToString("D"), $"Assignment '{assignment.Title}' reassigned.",
+            engagementId: engagementId,
+            details: AuditDetails.Empty().With("previous_assignee_user_id", previous)
+                .With("new_assignee_user_id", newAssignee).With("scope_type", assignment.ScopeType)
+                .With("scope_id", assignment.ScopeId), cancellationToken: token);
     }, cancellationToken);
 
     /// <summary>Completes an assignment: terminal, the outcome is retained as history.</summary>
