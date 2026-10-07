@@ -63,7 +63,8 @@ public class FinancialUpload
             throw new ValidationException("The uploaded file is empty.");
         }
 
-        if ((sha256 ?? string.Empty).Length != 64)
+        var digest = (sha256 ?? string.Empty).Trim().ToLowerInvariant();
+        if (digest.Length != 64)
         {
             throw new ValidationException("The uploaded file digest is missing.");
         }
@@ -81,7 +82,7 @@ public class FinancialUpload
             FileName = string.IsNullOrWhiteSpace(fileName) ? "upload" : fileName.Trim(),
             ContentType = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim(),
             SizeBytes = sizeBytes,
-            Sha256 = sha256.ToLowerInvariant(),
+            Sha256 = digest,
             StorageLocation = storageLocation,
             DetectedFormat = detectedFormat,
             DetectedStructure = string.IsNullOrWhiteSpace(detectedStructure) ? "{}" : detectedStructure,

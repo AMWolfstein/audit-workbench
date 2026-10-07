@@ -12,6 +12,7 @@ using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Domain.Finalization;
+using AuditWorkbench.Domain.FinancialData;
 using AuditWorkbench.Domain.Identity;
 using AuditWorkbench.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -241,10 +242,27 @@ public sealed class ClientHandoverPackageService : IClientHandoverPackageService
                     ("$id", e.EngagementId), ("$company", e.CompanyId), ("$year", e.FinancialYearId),
                     ("$status", initialStatus), ("$currency", e.CurrencyCode), ("$scale", e.MinorUnitScale),
                     ("$created", e.CreatedAtUtc), ("$by", e.CreatedBy), ("$version", e.RowVersion));
+
+                // Every engagement owns exactly one financial period. A packaged
+                // finalized year arrives locked, exactly as migration 0007 treats a
+                // year that was finalized before the period existed.
+                await ExecuteAsync(connection, transaction,
+                    "INSERT INTO financial_period (financial_period_id, engagement_id, financial_year_id, reporting_date, " +
+                    "status, created_at_utc, created_by, updated_at_utc, row_version) " +
+                    "VALUES($id,$eng,$year,$report,$status,$now,$by,$now,1)", token,
+                    ("$id", Guid.NewGuid()), ("$eng", e.EngagementId), ("$year", e.FinancialYearId),
+                    ("$report", yearEnds[e.FinancialYearId]),
+                    ("$status", e.Status == "FINALIZED" ? FinancialPeriodStatus.Locked : FinancialPeriodStatus.Open),
+                    ("$now", now), ("$by", e.CreatedBy));
+
                 foreach (var a in parsed.Accounts.Where(a => a.EngagementId == e.EngagementId).OrderBy(a => a.AccountCode))
-                    await ExecuteAsync(connection, transaction, "INSERT INTO account VALUES($id,$eng,$code,$name,$type,$sort,$created,$by)", token,
+                    await ExecuteAsync(connection, transaction,
+                        "INSERT INTO account (account_id, engagement_id, account_code, account_name, account_type, " +
+                        "display_order, created_at_utc, created_by, normalized_code, account_group, account_origin, audit_area_id) " +
+                        "VALUES($id,$eng,$code,$name,$type,$sort,$created,$by,$normalized,NULL,'MANUAL',NULL)", token,
                         ("$id", a.AccountId), ("$eng", a.EngagementId), ("$code", a.AccountCode), ("$name", a.AccountName),
-                        ("$type", a.AccountType), ("$sort", a.DisplayOrder), ("$created", a.CreatedAtUtc), ("$by", a.CreatedBy));
+                        ("$type", a.AccountType), ("$sort", a.DisplayOrder), ("$created", a.CreatedAtUtc), ("$by", a.CreatedBy),
+                        ("$normalized", Account.NormalizeCode(a.AccountCode)));
                 foreach (var v in parsed.FinancialData.Where(v => v.EngagementId == e.EngagementId)
                              .OrderBy(v => v.AccountId).ThenBy(v => v.RevisionNo))
                     await ExecuteAsync(connection, transaction,
