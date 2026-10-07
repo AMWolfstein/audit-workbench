@@ -1,3 +1,4 @@
+using System.Globalization;
 using AuditWorkbench.Application.Auditing;
 using AuditWorkbench.Application.Common;
 using AuditWorkbench.Application.Engagements;
@@ -418,8 +419,8 @@ public sealed class GeneralLedgerImportService
             FinancialPeriodId = period.FinancialPeriodId,
             CurrencyCode = engagement.CurrencyCode,
             MinorUnitScale = engagement.MinorUnitScale,
-            PeriodStart = year.Start,
-            PeriodEnd = year.End,
+            PeriodStart = DateOnly.ParseExact(year.PeriodStart, "yyyy-MM-dd", CultureInfo.InvariantCulture),
+            PeriodEnd = DateOnly.ParseExact(year.PeriodEnd, "yyyy-MM-dd", CultureInfo.InvariantCulture),
             AccountsByNormalizedCode = map,
             AllowUnbalanced = allowUnbalanced,
         };

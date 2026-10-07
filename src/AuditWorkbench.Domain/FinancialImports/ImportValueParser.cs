@@ -171,30 +171,38 @@ public static class ImportValueParser
             var pieces = normalized.Split(separator, StringSplitOptions.TrimEntries);
             if (pieces.Length == 3 && pieces.All(p => p.Length > 0))
             {
-                var firstIsYear = pieces[0].Length == 4;
                 var first = ParseInt(pieces[0]);
                 var second = ParseInt(pieces[1]);
                 var third = ParseInt(pieces[2]);
-                if (firstIsYear && first is > 1900 and < 2200 && second is >= 1 and <= 12 && third is >= 1 and <= 31)
+
+                // yyyy followed by month and day (a separator other than '-' was used).
+                if (first is > 1900 and < 2200 && second is >= 1 and <= 12 && third is >= 1 and <= 31)
                 {
-                    return TryCompose(first, second, third, out isoDate);
+                    return TryCompose(first.Value, second.Value, third.Value, out isoDate);
                 }
 
-                if (first is >= 1 and <= 31 && second is >= 1 and <= 12 && third is not null && third >= 0 and <= 99)
+                // Day/month followed by a two-digit or four-digit year.
+                if (first is >= 1 and <= 31 && second is >= 1 and <= 12 && third is >= 0 and <= 2199)
                 {
-                    var year = third.Value >= 100 ? third.Value : (third.Value >= 70 ? 1900 + third.Value : 2000 + third.Value);
-                    if (first > 12 && second <= 12)
+                    var year = third.Value >= 100
+                        ? third.Value
+                        : third.Value >= 70
+                            ? 1900 + third.Value
+                            : 2000 + third.Value;
+
+                    // A component above 12 decides the order; when both could be a
+                    // month, day-first is the documented rule.
+                    if (first.Value > 12 && second.Value <= 12)
                     {
-                        return TryCompose(year, second, first, out isoDate);
+                        return TryCompose(year, second.Value, first.Value, out isoDate);
                     }
 
-                    if (second > 12 && first <= 12)
+                    if (second.Value > 12 && first.Value <= 12)
                     {
-                        return TryCompose(year, first, second, out isoDate);
+                        return TryCompose(year, first.Value, second.Value, out isoDate);
                     }
 
-                    // Both components are <= 12: day-first is the documented rule.
-                    return TryCompose(year, second, first, out isoDate);
+                    return TryCompose(year, second.Value, first.Value, out isoDate);
                 }
             }
         }

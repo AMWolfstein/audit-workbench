@@ -97,7 +97,9 @@ public sealed class FinancialPeriodService
             year.PeriodEnd,
             IClock.Format(_clock.UtcNow),
             _actor.UserId,
-            FinancialPeriodStatus.IsFinalized(engagement.Status) ? FinancialPeriodStatus.Locked : FinancialPeriodStatus.Open);
+            EngagementStatus.IsFinalized(engagement.Status)
+                ? FinancialPeriodStatus.Locked
+                : FinancialPeriodStatus.Open);
         _dbContext.FinancialPeriods.Add(created);
         return created;
     }
@@ -114,7 +116,7 @@ public sealed class FinancialPeriodService
             createdAtUtc,
             createdBy,
             FinancialPeriodStatus.Open);
-        period.EnsureReportingDateWithin(year.Start, year.End);
+        period.EnsureReportingDateWithin(year.PeriodStart, year.PeriodEnd);
         return period;
     }
 

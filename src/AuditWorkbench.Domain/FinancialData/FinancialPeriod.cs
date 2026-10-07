@@ -90,11 +90,18 @@ public sealed class FinancialPeriod
         Guid financialYearId,
         string reportingDate,
         Guid createdBy,
-        string createdAtUtc)
+        string createdAtUtc,
+        string? status = null)
     {
         if (string.IsNullOrWhiteSpace(reportingDate) || !DateOnly.TryParse(reportingDate, out _))
         {
             throw new ValidationException("The reporting date of a financial period is required (yyyy-MM-dd).");
+        }
+
+        var initialStatus = string.IsNullOrWhiteSpace(status) ? FinancialPeriodStatus.Open : status;
+        if (!FinancialPeriodStatus.All.Contains(initialStatus))
+        {
+            throw new ValidationException($"'{status}' is not a financial period status.");
         }
 
         return new FinancialPeriod
@@ -103,12 +110,29 @@ public sealed class FinancialPeriod
             EngagementId = engagementId,
             FinancialYearId = financialYearId,
             ReportingDate = reportingDate.Trim(),
-            Status = FinancialPeriodStatus.Open,
+            Status = initialStatus,
             CreatedAtUtc = createdAtUtc,
             CreatedBy = createdBy,
             UpdatedAtUtc = createdAtUtc,
             RowVersion = 1,
         };
+    }
+
+    /// <summary>The reporting date must fall inside the fiscal year it belongs to.</summary>
+    public void EnsureReportingDateWithin(string periodStart, string periodEnd)
+    {
+        if (!DateOnly.TryParse(ReportingDate, out var reporting) ||
+            !DateOnly.TryParse(periodStart, out var start) ||
+            !DateOnly.TryParse(periodEnd, out var end))
+        {
+            throw new ValidationException("The reporting date or the financial year dates could not be read.");
+        }
+
+        if (reporting < start || reporting > end)
+        {
+            throw new ValidationException(
+                $"The reporting date {ReportingDate} is outside the financial year {periodStart} to {periodEnd}.");
+        }
     }
 
     public void ChangeStatus(string status, string updatedAtUtc)
