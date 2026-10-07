@@ -92,7 +92,8 @@ public class TbLine
             throw new ValidationException("A trial-balance line requires an account code.");
         }
 
-        if ((rowHash ?? string.Empty).Length != 64)
+        var digest = rowHash ?? string.Empty;
+        if (digest.Length != 64)
         {
             throw new ValidationException("A trial-balance line requires its row digest.");
         }
@@ -116,7 +117,7 @@ public class TbLine
             CostCenter = Blank(costCenter),
             AccountGroup = Blank(accountGroup),
             ExtraColumnsJson = string.IsNullOrWhiteSpace(extraColumnsJson) ? "{}" : extraColumnsJson,
-            RowHash = rowHash,
+            RowHash = digest,
             CreatedAtUtc = createdAtUtc,
         };
     }

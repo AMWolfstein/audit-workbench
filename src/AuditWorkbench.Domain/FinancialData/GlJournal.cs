@@ -77,7 +77,8 @@ public class GlJournal
             throw new ValidationException($"'{identitySource}' is not a supported identity source.");
         }
 
-        if ((journalHash ?? string.Empty).Length != 64)
+        var digest = journalHash ?? string.Empty;
+        if (digest.Length != 64)
         {
             throw new ValidationException("A general-ledger entry requires its entry digest.");
         }
@@ -97,7 +98,7 @@ public class GlJournal
             Description = Blank(description),
             CurrencyCode = Blank(currencyCode),
             PreparedBy = Blank(preparedBy),
-            JournalHash = journalHash,
+            JournalHash = digest,
             CreatedAtUtc = createdAtUtc,
         };
     }
