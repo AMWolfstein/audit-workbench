@@ -83,6 +83,11 @@ public static class TrialBalanceImportPipeline
                 continue;
             }
 
+            if (ImportRowSupport.IsBeforeData(structure, row))
+            {
+                continue;
+            }
+
             var result = Evaluate(row, structure, mapping, context, report);
             if (result.Skip)
             {
@@ -178,6 +183,11 @@ public static class TrialBalanceImportPipeline
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (row.IsEmpty)
+            {
+                continue;
+            }
+
+            if (ImportRowSupport.IsBeforeData(structure, row))
             {
                 continue;
             }

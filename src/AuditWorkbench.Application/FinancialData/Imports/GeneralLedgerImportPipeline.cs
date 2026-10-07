@@ -157,6 +157,11 @@ public static class GeneralLedgerImportPipeline
                 continue;
             }
 
+            if (ImportRowSupport.IsBeforeData(structure, row))
+            {
+                continue;
+            }
+
             var result = Evaluate(row, structure, mapping, context, report, state, journals, unmatched);
             if (result.Skip)
             {
@@ -225,6 +230,11 @@ public static class GeneralLedgerImportPipeline
             cancellationToken.ThrowIfCancellationRequested();
             sourceRowCount++;
             if (row.IsEmpty)
+            {
+                continue;
+            }
+
+            if (ImportRowSupport.IsBeforeData(structure, row))
             {
                 continue;
             }

@@ -11,6 +11,14 @@ internal static class ImportRowSupport
     public const int MaxNameLength = 200;
 
     /// <summary>
+    /// True for every physical row above the data: the title lines a client file
+    /// starts with and the header row itself. Structure detection has already
+    /// identified the header, so the pipelines must not evaluate it as a balance.
+    /// </summary>
+    public static bool IsBeforeData(ImportStructureInfo structure, TabularRow row) =>
+        structure.HeaderRowNumber > 0 && row.RowNumber <= structure.HeaderRowNumber;
+
+    /// <summary>
     /// Client trial balances and ledger extracts often end with a totals row.
     /// Those rows are recognized and skipped with an informational finding; they
     /// are never treated as data and never silently mistaken for an account.

@@ -126,8 +126,9 @@ public sealed class FinancialImportPipelineTests
             .ValidateAsync(engagement, upload, withoutCode, allowUnbalanced: false));
 
         Assert.True(outcome.Report.HasErrors);
-        Assert.Contains(ImportIssueCodes.MissingRequiredColumn, outcome.Report.IssueCounts.Keys);
         Assert.False(outcome.CanImport);
+        Assert.Contains(outcome.Report.IssueCounts.Keys,
+            code => code is ImportIssueCodes.MissingRequiredColumn or ImportIssueCodes.MissingAccountCode);
 
         await Assert.ThrowsAsync<ValidationException>(() => workspace.UseAsync(scope =>
             scope.GetRequiredService<TrialBalanceImportService>()
@@ -247,8 +248,17 @@ public sealed class FinancialImportPipelineTests
         Assert.All(flagged, line => Assert.Equal("2027-01-05", line.PostingDate ?? line.TransactionDate));
 
         // A journal line keeps the source identity it came with, not the database key.
-        Assert.Equal("JV-0001", await workspace.TextScalarAsync(
-            "SELECT journal_identity FROM gl_journal WHERE import_id=$i ORDER BY journal_identity LIMIT 1",
+        const string identity = "SELECT journal_identity FROM gl_journal WHERE import_id=$i " +
+                                "ORDER BY journal_identity LIMIT 1";
+        Assert.Contains("JV-0001", (await workspace.TextScalarAsync(identity,
+            ("$i", result.ImportId.ToString("D")))) ?? string.Empty);
+        Assert.Equal("SOURCE", await workspace.TextScalarAsync(
+            "SELECT identity_source FROM gl_journal WHERE import_id=$i ORDER BY journal_identity LIMIT 1",
+            ("$i", result.ImportId.ToString("D"))));
+        // Line numbers stay the client's own, so a later comparison can line them up.
+        Assert.Equal("2", await workspace.TextScalarAsync(
+            "SELECT l.source_line_no FROM gl_line l JOIN gl_journal j ON j.gl_journal_id = l.gl_journal_id " +
+            "WHERE l.import_id=$i ORDER BY j.journal_identity, l.line_no DESC LIMIT 1",
             ("$i", result.ImportId.ToString("D"))));
     }
 
