@@ -100,56 +100,6 @@ public static class DatasetValidationStatus
 }
 
 /// <summary>
-/// Observable import stages (requirement 19). The architecture is a single local
-/// process, so a job is a database row plus a queued work item - not a
-/// distributed queue.
-/// </summary>
-public static class ImportJobStatus
-{
-    public const string Queued = "QUEUED";
-    public const string Processing = "PROCESSING";
-    public const string Validating = "VALIDATING";
-    public const string Importing = "IMPORTING";
-    public const string Reconciling = "RECONCILING";
-    public const string Completed = "COMPLETED";
-    public const string Failed = "FAILED";
-    public const string Cancelled = "CANCELLED";
-
-    public static readonly IReadOnlyList<string> All = new[]
-    {
-        Queued, Processing, Validating, Importing, Reconciling, Completed, Failed, Cancelled,
-    };
-
-    public static bool IsTerminal(string status) => status is Completed or Failed or Cancelled;
-
-    public static bool CanTransition(string from, string to) => (from, to) switch
-    {
-        (Queued, Queued or Processing or Failed or Cancelled) => true,
-        (Processing, Processing or Validating or Importing or Failed or Cancelled) => true,
-        (Validating, Validating or Processing or Importing or Failed or Cancelled) => true,
-        (Importing, Importing or Validating or Reconciling or Failed or Cancelled) => true,
-        (Reconciling, Reconciling or Importing or Completed or Failed or Cancelled) => true,
-        (Completed, Completed) => true,
-        (Failed, Failed) => true,
-        (Cancelled, Cancelled) => true,
-        _ => false,
-    };
-
-    public static string DisplayName(string status) => status switch
-    {
-        Queued => "Queued",
-        Processing => "Reading the file",
-        Validating => "Validating",
-        Importing => "Importing",
-        Reconciling => "Reconciling",
-        Completed => "Completed",
-        Failed => "Failed",
-        Cancelled => "Cancelled",
-        _ => status,
-    };
-}
-
-/// <summary>
 /// How a transaction identity was obtained: from the client's own stable key, or
 /// derived deterministically by the importer because the export carried none.
 /// </summary>

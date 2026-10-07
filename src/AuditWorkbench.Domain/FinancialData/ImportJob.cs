@@ -21,6 +21,20 @@ public static class ImportJobStatus
     public static bool IsTerminal(string status) =>
         status is Completed or Failed or Cancelled;
 
+    /// <summary>Operator-facing stage name shown while an import is running.</summary>
+    public static string DisplayName(string status) => status switch
+    {
+        Queued => "Queued",
+        Processing => "Reading the source file",
+        Validating => "Validating rows",
+        Importing => "Writing rows",
+        Reconciling => "Reconciling",
+        Completed => "Completed",
+        Failed => "Failed",
+        Cancelled => "Cancelled",
+        _ => status,
+    };
+
     public static bool CanTransition(string from, string to) => (from, to) switch
     {
         (Queued, Queued) => true,
