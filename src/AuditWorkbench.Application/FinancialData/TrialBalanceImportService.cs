@@ -6,6 +6,7 @@ using AuditWorkbench.Application.FinancialData.Imports;
 using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Domain.Common;
+using AuditWorkbench.Domain.Engagements;
 using AuditWorkbench.Domain.FinancialData;
 using AuditWorkbench.Domain.FinancialImports;
 using AuditWorkbench.Domain.Identity;
