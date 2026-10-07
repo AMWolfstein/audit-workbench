@@ -59,6 +59,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<TrialBalanceImportService>();
         services.AddScoped<GeneralLedgerImportService>();
         services.AddScoped<BulkInserter>();
+        services.AddScoped<FinancialReconciliationService>();
         services.AddScoped<ComparisonService>();
         services.AddScoped<FinalizationService>();
         services.AddScoped<IClientHandoverPackageService, ClientHandoverPackageService>();
