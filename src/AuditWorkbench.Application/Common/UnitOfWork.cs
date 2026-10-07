@@ -84,7 +84,7 @@ public sealed class UnitOfWork
         }
         catch (DbUpdateException exception)
         {
-            throw SqliteErrorTranslator.Translate(exception);
+            throw DatabaseErrorTranslator.Translate(exception);
         }
     }
 }

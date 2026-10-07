@@ -1,6 +1,8 @@
 using System.Net;
 using AuditWorkbench.Application;
+using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Infrastructure.Workspace;
+using AuditWorkbench.Web.Identity;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +25,19 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 builder.Services.AddAuditWorkbench(paths);
+
+// Shared/server deployments select Claims and configure their approved ASP.NET
+// authentication handler. Identity is then taken only from the authenticated
+// ClaimsPrincipal; the local actor remains explicit development compatibility.
+var useClaimsIdentity = string.Equals(
+    builder.Configuration["Workbench:IdentityMode"], "Claims", StringComparison.OrdinalIgnoreCase);
+if (useClaimsIdentity)
+{
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddScoped<ICurrentActor, HttpCurrentActor>();
+    builder.Services.AddAuthentication();
+    builder.Services.AddAuthorization();
+}
 
 builder.Services.AddRazorPages(options =>
 {
@@ -83,6 +98,11 @@ app.Use(async (context, next) =>
 
 app.UseStaticFiles();
 app.UseRouting();
+if (useClaimsIdentity)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
 app.MapRazorPages();
 
 app.Lifetime.ApplicationStarted.Register(() =>

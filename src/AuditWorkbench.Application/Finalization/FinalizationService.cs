@@ -167,6 +167,8 @@ public sealed class FinalizationService
     /// <summary>Recomputes the digest from live data and compares it with the stored manifest.</summary>
     public async Task<bool> VerifyDigestAsync(Guid engagementId, CancellationToken cancellationToken = default)
     {
+        await _authorization.RequireAsync(engagementId, Permissions.ViewEngagement, cancellationToken)
+            .ConfigureAwait(false);
         var engagement = await _engagements.LoadAsync(engagementId, cancellationToken).ConfigureAwait(false);
         if (!engagement.IsFinalized)
         {
@@ -187,15 +189,22 @@ public sealed class FinalizationService
                && string.Equals(recomputed, manifest.CanonicalContent, StringComparison.Ordinal);
     }
 
-    public Task<FinalizationManifest?> GetManifestAsync(Guid engagementId,
-        CancellationToken cancellationToken = default) =>
-        _dbContext.FinalizationManifests
+    public async Task<FinalizationManifest?> GetManifestAsync(Guid engagementId,
+        CancellationToken cancellationToken = default)
+    {
+        await _authorization.RequireAsync(engagementId, Permissions.ViewEngagement, cancellationToken)
+            .ConfigureAwait(false);
+        return await _dbContext.FinalizationManifests
             .AsNoTracking()
-            .FirstOrDefaultAsync(m => m.EngagementId == engagementId, cancellationToken);
+            .FirstOrDefaultAsync(m => m.EngagementId == engagementId, cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     public async Task<string> BuildManifestDocumentAsync(Guid engagementId,
         CancellationToken cancellationToken = default)
     {
+        await _authorization.RequireAsync(engagementId, Permissions.ViewEngagement, cancellationToken)
+            .ConfigureAwait(false);
         var engagement = await _engagements.LoadAsync(engagementId, cancellationToken).ConfigureAwait(false);
         var year = await _engagements.LoadYearAsync(engagement.FinancialYearId, cancellationToken)
             .ConfigureAwait(false);
@@ -247,7 +256,7 @@ public sealed class FinalizationService
         CancellationToken cancellationToken) =>
         _queries.QueryAsync(
             "finalization_scope.sql",
-            new Dictionary<string, object?> { ["engagement_id"] = engagementId.ToString("D") },
+            new Dictionary<string, object?> { ["engagement_id"] = engagementId },
             reader => new ManifestAccountLine
             {
                 AccountCode = reader.GetString(reader.GetOrdinal("account_code")),

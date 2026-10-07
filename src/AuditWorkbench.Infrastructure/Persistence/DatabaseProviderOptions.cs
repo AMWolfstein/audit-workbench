@@ -7,6 +7,12 @@ public enum AuditDatabaseProvider { PostgreSql, SqlServer, Sqlite }
 
 public sealed record AuditDatabaseOptions(AuditDatabaseProvider Provider, string ConnectionString)
 {
+    public static AuditDatabaseOptions ProductionPostgreSql(string connectionString) =>
+        new(AuditDatabaseProvider.PostgreSql, connectionString);
+
+    public static AuditDatabaseOptions LocalSqlite(string connectionString) =>
+        new(AuditDatabaseProvider.Sqlite, connectionString);
+
     public void Validate(bool production)
     {
         if (string.IsNullOrWhiteSpace(ConnectionString))

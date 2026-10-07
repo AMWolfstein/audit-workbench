@@ -1,5 +1,6 @@
 using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Auditing;
+using AuditWorkbench.Domain.Common;
 using AuditWorkbench.Domain.Identity;
 using AuditWorkbench.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -117,6 +118,15 @@ public sealed class AuditTrailQuery
     /// <summary>Recomputes the hash chain; false means the trail was altered out of band.</summary>
     public async Task<bool> VerifyChainAsync(CancellationToken cancellationToken = default)
     {
+        // Chain verification reads every event hash. It exposes no event content, but is
+        // still an audit-trail operation and therefore requires audit permission.
+        var permitted = await _authorization
+            .PermittedEngagementIdsAsync(Permissions.ViewAuditTrail, cancellationToken)
+            .ConfigureAwait(false);
+        if (permitted.Count == 0 &&
+            !await _authorization.HasWorkspacePrivilegeAsync(cancellationToken).ConfigureAwait(false))
+            throw new AuthorizationException("You do not have permission to verify the audit trail.");
+
         var events = await _dbContext.AuditEvents
             .AsNoTracking()
             .OrderBy(e => e.SequenceNo)
@@ -137,8 +147,19 @@ public sealed class AuditTrailQuery
         return true;
     }
 
-    public Task<int> CountAsync(CancellationToken cancellationToken = default) =>
-        _dbContext.AuditEvents.CountAsync(cancellationToken);
+    public async Task<int> CountAsync(CancellationToken cancellationToken = default)
+    {
+        var permitted = (await _authorization
+            .PermittedEngagementIdsAsync(Permissions.ViewAuditTrail, cancellationToken)
+            .ConfigureAwait(false)).Select(id => (Guid?)id).ToList();
+        var includeWorkspace = await _authorization.HasWorkspacePrivilegeAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return includeWorkspace
+            ? await _dbContext.AuditEvents.CountAsync(
+                e => e.EngagementId == null || permitted.Contains(e.EngagementId), cancellationToken)
+            : await _dbContext.AuditEvents.CountAsync(
+                e => e.EngagementId != null && permitted.Contains(e.EngagementId), cancellationToken);
+    }
 
     public static IReadOnlyList<string> KnownEventTypes => new[]
     {
@@ -157,6 +178,7 @@ public sealed class AuditTrailQuery
         AuditEventType.EngagementMemberSuspended,
         AuditEventType.EngagementMemberReactivated,
         AuditEventType.AssignmentCreated,
+        AuditEventType.AssignmentReassigned,
         AuditEventType.AssignmentCompleted,
         AuditEventType.AssignmentCancelled,
         AuditEventType.UserCreated,

@@ -20,6 +20,7 @@ public static class AuditEventType
     public const string EngagementMemberSuspended = "ENGAGEMENT_MEMBER_SUSPENDED";
     public const string EngagementMemberReactivated = "ENGAGEMENT_MEMBER_REACTIVATED";
     public const string AssignmentCreated = "ASSIGNMENT_CREATED";
+    public const string AssignmentReassigned = "ASSIGNMENT_REASSIGNED";
     public const string AssignmentCompleted = "ASSIGNMENT_COMPLETED";
     public const string AssignmentCancelled = "ASSIGNMENT_CANCELLED";
     public const string UserCreated = "USER_CREATED";

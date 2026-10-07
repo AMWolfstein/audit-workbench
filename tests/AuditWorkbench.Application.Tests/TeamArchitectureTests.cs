@@ -1,4 +1,5 @@
 using AuditWorkbench.Application.Auditing;
+using AuditWorkbench.Application.Companies;
 using AuditWorkbench.Application.Engagements;
 using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Common;
@@ -435,6 +436,72 @@ public class TeamArchitectureTests
         Assert.Contains(all, row => row.EngagementId == engagementB);
         Assert.True(await workspace.UseAsync(scope => scope.GetRequiredService<AuditTrailQuery>()
             .VerifyChainAsync()));
+    }
+
+    [Fact]
+    public async Task CompanyAndPeriodEndpointsDoNotLeakOrGrantPartnershipById()
+    {
+        var actor = new MutableActor(LocalUser.LocalActorId, LocalUser.LocalActorUsername,
+            LocalUser.LocalActorDisplayName);
+        await using var workspace = await TestWorkspace.CreateAsync(actor);
+        var company = await workspace.CreateCompanyAsync();
+        var engagement = await workspace.CreateYearAsync(company, "FY2026", 2026);
+        Guid auditor = Guid.Empty;
+        await workspace.UseAsync(async scope =>
+        {
+            var teams = scope.GetRequiredService<TeamService>();
+            auditor = await teams.CreateUserAsync("limited", "Limited Auditor");
+            await teams.AddMemberAsync(engagement, auditor, BuiltInRoles.Auditor);
+        });
+
+        // A member can see the client through the engagement, but EDIT_ENGAGEMENT
+        // is not authority to create a new year and self-grant Partner.
+        actor.Become(auditor, "limited", "Limited Auditor");
+        Assert.Single(await workspace.UseAsync(scope =>
+            scope.GetRequiredService<CompanyService>().ListAsync()));
+        await Assert.ThrowsAsync<AuthorizationException>(() => workspace.UseAsync(scope =>
+            scope.GetRequiredService<EngagementService>().CreateAsync(new CreateEngagementCommand(
+                company, "FY2027", new DateOnly(2027, 1, 1), new DateOnly(2027, 12, 31),
+                EngagementStatus.Draft, "USD", 2, null))));
+
+        var unknownCompany = Guid.NewGuid();
+        await Assert.ThrowsAsync<AuthorizationException>(() => workspace.UseAsync(scope =>
+            scope.GetRequiredService<CompanyService>().GetAsync(unknownCompany)));
+    }
+
+    [Fact]
+    public async Task AssignmentReassignmentIsScopedConcurrentAndAudited()
+    {
+        await using var workspace = await TestWorkspace.CreateAsync();
+        var company = await workspace.CreateCompanyAsync();
+        var engagement = await workspace.CreateYearAsync(company, "FY2026", 2026);
+        Guid first = Guid.Empty;
+        Guid second = Guid.Empty;
+        Guid assignment = Guid.Empty;
+        await workspace.UseAsync(async scope =>
+        {
+            var teams = scope.GetRequiredService<TeamService>();
+            first = await teams.CreateUserAsync("first", "First Assignee");
+            second = await teams.CreateUserAsync("second", "Second Assignee");
+            await teams.AddMemberAsync(engagement, first, BuiltInRoles.Auditor);
+            await teams.AddMemberAsync(engagement, second, BuiltInRoles.Auditor);
+            assignment = await teams.AssignAsync(engagement, first, "ENGAGEMENT",
+                engagement.ToString("D"), "Planning assignment");
+            await teams.ReassignAsync(engagement, assignment, second, expectedRowVersion: 1);
+        });
+
+        Assert.Equal(second.ToString("D"), await workspace.TextScalarAsync(
+            "SELECT assignee_user_id FROM assignment WHERE assignment_id=$id", ("$id", assignment.ToString("D"))));
+        Assert.Equal(2L, await workspace.ScalarAsync(
+            "SELECT row_version FROM assignment WHERE assignment_id=$id", ("$id", assignment.ToString("D"))));
+        await Assert.ThrowsAsync<ConcurrencyException>(() => workspace.UseAsync(scope =>
+            scope.GetRequiredService<TeamService>()
+                .ReassignAsync(engagement, assignment, first, expectedRowVersion: 1)));
+
+        var history = (await workspace.UseAsync(scope => scope.GetRequiredService<AuditTrailQuery>()
+            .ListAsync(engagementId: engagement, eventType: "ASSIGNMENT_REASSIGNED", limit: 50))).Single();
+        Assert.Contains(first.ToString("D"), history.DetailsJson);
+        Assert.Contains(second.ToString("D"), history.DetailsJson);
     }
 
     private sealed class MutableActor : ICurrentActor

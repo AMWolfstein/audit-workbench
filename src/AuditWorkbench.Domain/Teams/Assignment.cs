@@ -39,6 +39,19 @@ public class Assignment
         }
     }
 
+    public void Reassign(Guid assignee, string now)
+    {
+        if (!IsActive)
+            throw new ValidationException("Only an active assignment can be reassigned.");
+        if (assignee == Guid.Empty)
+            throw new ValidationException("An assignee is required.");
+        if (assignee == AssigneeUserId)
+            throw new ValidationException("The assignment is already assigned to that user.");
+        AssigneeUserId = assignee;
+        UpdatedAtUtc = now;
+        RowVersion++;
+    }
+
     public void Complete(string now)
     {
         if (!IsActive)

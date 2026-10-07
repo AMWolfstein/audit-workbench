@@ -83,6 +83,7 @@ flowchart LR
 | [Audit-year lifecycle](docs/audit-year-lifecycle.md) | State machine, finalization protocol, prior-year creation, and roll-forward rules |
 | [MVP scope](docs/mvp-scope.md) | Included/excluded behavior, demo scenario, acceptance tests, and phased delivery plan |
 | [Decisions](docs/decisions.md) | Architecture decision records, assumptions, and deferred decisions |
+| [Foundation contract](docs/foundation.md) | Implemented identity, authorization, ownership, concurrency, audit and `.awb` boundaries |
 
 ## Key diagrams
 

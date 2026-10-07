@@ -1,5 +1,6 @@
 using AuditWorkbench.Application.Auditing;
 using AuditWorkbench.Application.Common;
+using AuditWorkbench.Application.Companies;
 using AuditWorkbench.Application.Teams;
 using AuditWorkbench.Domain.Auditing;
 using AuditWorkbench.Domain.Common;
@@ -87,6 +88,7 @@ public sealed class EngagementService
     private readonly IClock _clock;
     private readonly ICurrentActor _actor;
     private readonly EngagementAuthorizationService _authorization;
+    private readonly CompanyAuthorizationService _companyAuthorization;
 
     public EngagementService(
         AuditWorkbenchDbContext dbContext,
@@ -94,7 +96,8 @@ public sealed class EngagementService
         AuditTrailWriter auditTrail,
         IClock clock,
         ICurrentActor actor,
-        EngagementAuthorizationService authorization)
+        EngagementAuthorizationService authorization,
+        CompanyAuthorizationService companyAuthorization)
     {
         _dbContext = dbContext;
         _unitOfWork = unitOfWork;
@@ -102,11 +105,14 @@ public sealed class EngagementService
         _clock = clock;
         _actor = actor;
         _authorization = authorization;
+        _companyAuthorization = companyAuthorization;
     }
 
     public Task<Guid> CreateAsync(CreateEngagementCommand command, CancellationToken cancellationToken = default) =>
         _unitOfWork.ExecuteAsync(async token =>
         {
+            // Knowing a company id is not authority to create a year and become its Partner.
+            await _companyAuthorization.RequireManagementAsync(command.CompanyId, token).ConfigureAwait(false);
             var company = await _dbContext.Companies
                 .FirstOrDefaultAsync(c => c.CompanyId == command.CompanyId, token)
                 .ConfigureAwait(false)
@@ -207,6 +213,10 @@ public sealed class EngagementService
         Guid priorEngagementId,
         CancellationToken cancellationToken)
     {
+        // The relationship would otherwise disclose/consume a year merely by id.
+        await _authorization.RequireAsync(priorEngagementId, Permissions.ViewEngagement, cancellationToken)
+            .ConfigureAwait(false);
+
         var existing = await _dbContext.PriorYearRelationships
             .AnyAsync(r => r.CurrentEngagementId == current.EngagementId, cancellationToken)
             .ConfigureAwait(false);
@@ -303,6 +313,8 @@ public sealed class EngagementService
         DateOnly? currentPeriodEnd = null,
         CancellationToken cancellationToken = default)
     {
+        await _companyAuthorization.RequireAccessAsync(companyId, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
         var periodEnd = currentPeriodEnd is null ? null : FinancialYear.Format(currentPeriodEnd.Value);
 
         var query =
@@ -311,6 +323,11 @@ public sealed class EngagementService
                 on engagement.FinancialYearId equals year.FinancialYearId
             where engagement.CompanyId == companyId
                   && engagement.Status == EngagementStatus.Finalized
+                  && _dbContext.EngagementMembers.Any(m => m.EngagementId == engagement.EngagementId
+                      && m.UserId == _actor.UserId && m.Status == "ACTIVE"
+                      && _dbContext.Users.Any(u => u.UserId == m.UserId && u.Status == "ACTIVE")
+                      && _dbContext.RolePermissions.Any(p => p.RoleId == m.RoleId
+                          && p.PermissionKey == Permissions.ViewEngagement))
                   && (periodEnd == null || string.Compare(year.PeriodEnd, periodEnd) < 0)
             orderby year.PeriodEnd descending
             select new PriorYearOption
@@ -324,12 +341,12 @@ public sealed class EngagementService
         return await query.ToListAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<Engagement> LoadAsync(Guid engagementId, CancellationToken cancellationToken = default) =>
+    internal async Task<Engagement> LoadAsync(Guid engagementId, CancellationToken cancellationToken = default) =>
         await _dbContext.Engagements.FirstOrDefaultAsync(e => e.EngagementId == engagementId, cancellationToken)
             .ConfigureAwait(false)
         ?? throw new NotFoundException("That financial year does not exist in this workspace.");
 
-    public async Task<FinancialYear> LoadYearAsync(Guid financialYearId, CancellationToken cancellationToken = default) =>
+    internal async Task<FinancialYear> LoadYearAsync(Guid financialYearId, CancellationToken cancellationToken = default) =>
         await _dbContext.FinancialYears
             .FirstOrDefaultAsync(y => y.FinancialYearId == financialYearId, cancellationToken)
             .ConfigureAwait(false)
