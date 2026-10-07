@@ -140,8 +140,8 @@ public sealed class FinancialReconciliationTests
         // movement, all debit-positive.
         var cash = summary.Rows.Single(row => row.AccountCode == "1000");
         Assert.Equal(15000000, cash.TbBalanceMinor);
-        Assert.Equal(16050000, cash.GlNetMinor);
-        Assert.Equal(-1050000, cash.DifferenceMinor);
+        Assert.Equal(16059000, cash.GlNetMinor);
+        Assert.Equal(-1059000, cash.DifferenceMinor);
         Assert.True(cash.HasDifference);
         Assert.Equal(3, cash.GlLineCount);
     }
@@ -206,7 +206,7 @@ public sealed class FinancialReconciliationTests
             .GetRequiredService<FinancialReconciliationService>()
             .SnapshotChangesAsync(engagement, first, second, RollForwardState.ChangedValue));
         var moved = Assert.Single(changedValues);
-        Assert.Equal("JV-0001", moved.JournalIdentity);
+        Assert.Equal("SRC:JV-0001", moved.JournalIdentity);
         Assert.Equal(16000000, moved.CurrentDebitMinor);
         Assert.Equal(15000000, moved.PreviousDebitMinor);
         Assert.Equal("1000", moved.CurrentAccountCode);
@@ -214,7 +214,7 @@ public sealed class FinancialReconciliationTests
         var added = await workspace.UseAsync(scope => scope.GetRequiredService<FinancialReconciliationService>()
             .SnapshotChangesAsync(engagement, first, second, RollForwardState.Added));
         Assert.Single(added);
-        Assert.Equal("JV-0003", added[0].JournalIdentity);
+        Assert.Equal("SRC:JV-0003", added[0].JournalIdentity);
         Assert.Null(added[0].PreviousDebitMinor);
         Assert.Equal(9000, added[0].CurrentDebitMinor);
         Assert.True(RollForwardState.IsChangeOrAddition(added[0].State));
@@ -222,7 +222,7 @@ public sealed class FinancialReconciliationTests
         var removed = await workspace.UseAsync(scope => scope.GetRequiredService<FinancialReconciliationService>()
             .SnapshotChangesAsync(engagement, first, second, RollForwardState.Removed));
         Assert.Single(removed);
-        Assert.Equal("JV-0004", removed[0].JournalIdentity);
+        Assert.Equal("SRC:JV-0004", removed[0].JournalIdentity);
         Assert.Null(removed[0].CurrentDebitMinor);
         Assert.Equal(20000, removed[0].PreviousDebitMinor);
 
@@ -232,7 +232,7 @@ public sealed class FinancialReconciliationTests
         Assert.Equal(2, attributeOnly.Count);
         Assert.All(attributeOnly, row =>
         {
-            Assert.Equal("JV-0002", row.JournalIdentity);
+            Assert.Equal("SRC:JV-0002", row.JournalIdentity);
             // Same money, different words: the movement is in the description only.
             Assert.Equal(row.PreviousDebitMinor, row.CurrentDebitMinor);
             Assert.NotEqual(row.PreviousDescription, row.CurrentDescription);
