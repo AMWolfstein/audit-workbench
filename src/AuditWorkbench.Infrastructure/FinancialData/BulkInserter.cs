@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using AuditWorkbench.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace AuditWorkbench.Infrastructure.FinancialData;
 
